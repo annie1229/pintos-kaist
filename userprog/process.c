@@ -213,6 +213,9 @@ process_exec (void *f_name) {
 	/* We first kill the current context */
 	process_cleanup ();
 
+	// * VM 추가
+	vm_init();
+	
 	/* And then load the binary */
 	success = load (file_name, &_if);
 
