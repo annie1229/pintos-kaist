@@ -55,10 +55,35 @@ struct page {
 		struct uninit_page uninit;
 		struct anon_page anon;
 		struct file_page file;
+	
+	bool writable;
+	bool is_loaded;
+	struct file* f;
+
+	size_t offset;
+	size_t read_bytes;
+	size_t zero_bytes;
+
+	/* Memory Mapped File 에서 다룰 예정 */
+	struct list_elem mmap_elem; /* mmap 리스트 element */
+
+	/* Swapping 과제에서 다룰 예정 */
+	size_t swap_slot; /* 스왑 슬롯 */
+
 #ifdef EFILESYS
 		struct page_cache page_cache;
 #endif
 	};
+};
+
+struct file_info {
+	bool writable; /* True일 경우 해당 주소에 write 가능 	False일 경우 해당 주소에 write 불가능 */
+	bool is_loaded; /* 물리메모리의 탑재 여부를 알려주는 플래그 */
+	struct file* file; /* 가상주소와 맵핑된 파일 */
+	/* Memory Mapped File 에서 다룰 예정 */
+	size_t offset; /* 읽어야 할 파일 오프셋 */
+	size_t read_bytes; /* 가상페이지에 쓰여져 있는 데이터 크기 */
+	size_t zero_bytes; 
 };
 
 /* The representation of "frame" */
