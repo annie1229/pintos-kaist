@@ -218,7 +218,6 @@ process_exec (void *f_name) {
 
 	/* And then load the binary */
 	success = load (file_name, &_if);
-
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
@@ -404,16 +403,16 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
-  char *token, *save_ptr;
-  char *argv[64];
-  uint64_t cnt = 0;
+	char *token, *save_ptr;
+	char *argv[64];
+	uint64_t cnt = 0;
 
-  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    argv[cnt++] = token;
-  }
+	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+		argv[cnt++] = token;
+	}
 
 	/* Open executable file. */
-  file = filesys_open (argv[0]);
+	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -475,11 +474,13 @@ load (const char *file_name, struct intr_frame *if_) {
 						zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 					}
 					if (!load_segment (file, file_page, (void *) mem_page,
-								read_bytes, zero_bytes, writable))
+								read_bytes, zero_bytes, writable)) {
 						goto done;
+					}
 				}
-				else
+				else {
 					goto done;
+				}	
 				break;
 		}
 	}
@@ -684,6 +685,7 @@ setup_stack (struct intr_frame *if_) {
 		else
 			palloc_free_page (kpage);
 	}
+
 	return success;
 }
 
@@ -746,11 +748,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		struct file_info *aux;
+		aux->file = file;
+		aux->offset = ofs;
+		aux->read_bytes = read_bytes;
+		aux->zero_bytes = zero_bytes;
+		aux->writable = writable;
+		aux->is_loaded = false;
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;
-
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
@@ -769,7 +776,10 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-
+	if_->rsp = stack_bottom;
+	if(vm_claim_page(stack_bottom)) {
+		success = true;
+	};
 	return success;
 }
 #endif /* VM */
