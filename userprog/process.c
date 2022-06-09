@@ -214,8 +214,8 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	// * VM 추가
-	vm_init();
-	
+	// vm_init();
+
 	/* And then load the binary */
 	success = load (file_name, &_if);
 

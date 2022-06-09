@@ -1,12 +1,2 @@
 FAIL
-Kernel panic in run: PANIC at ../../threads/interrupt.c:213 in register_handler(): assertion `intr_handlers[vec_no] == NULL' failed.
-Call stack: 0x8004217f38 0x80042086a2 0x8004208c8d 0x80042210ad 0x80042207fa 0x800421b92b 0x800421b5b5 0x80042079ef
-Translation of call stack:
-0x0000008004217f38: debug_panic (lib/kernel/debug.c:32)
-0x00000080042086a2: register_handler (threads/interrupt.c:214)
-0x0000008004208c8d: intr_register_int (threads/interrupt.c:253)
-0x00000080042210ad: register_inspect_intr (vm/inspect.c:23)
-0x00000080042207fa: vm_init (vm/vm.c:20)
-0x000000800421b92b: process_exec (userprog/process.c:220)
-0x000000800421b5b5: initd (userprog/process.c:78)
-0x00000080042079ef: kernel_thread (threads/thread.c:556)
+Run didn't shut down properly: no "Timer: # ticks" message

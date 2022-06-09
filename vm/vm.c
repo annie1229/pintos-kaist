@@ -55,8 +55,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-
+		struct page *p;
+		uninit_new(p, upage, init, type, aux, anon_initializer);
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, p);
 	}
 err:
 	return false;
@@ -77,7 +79,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
 	int succ = false;
 	/* TODO: Fill this function. */
-	hash_insert(spt, &page->hash_elem);
+	hash_insert(&spt->hash_page_table, &page->hash_elem);
 	return succ;
 }
 
@@ -167,20 +169,20 @@ vm_claim_page (void *va UNUSED) {
 static bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
-
+	struct supplemental_page_table *spt = &thread_current()->spt;
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	hash_insert(&thread_current()->spt, &page->hash_elem);
+	hash_insert(&spt->hash_page_table, &page->hash_elem);
 	return swap_in (page, frame->kva);
 }
 
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
-	hash_init(spt, page_hash, page_less, NULL);
+	hash_init(&spt->hash_page_table, page_hash, page_less, NULL);
 }
 
 /* Copy supplemental page table from src to dst */
@@ -224,8 +226,8 @@ struct page *
 page_lookup (const void *address) {
   struct page p;
   struct hash_elem *e;
-
+	struct supplemental_page_table *spt = &thread_current()->spt;
   p.va = address;
-  e = hash_find (&thread_current()->spt, &p.hash_elem);
+  e = hash_find (&spt->hash_page_table, &p.hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }
