@@ -38,7 +38,9 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page bpy read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
+	printf("anon swap!!!!!!!!111\n");
 	struct anon_page *anon_page = &page->anon;
+	printf("anon swap!!!!!!!!222\n");
 }
 
 /* Swap out the page by writing contents to the swap disk. */

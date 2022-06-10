@@ -643,7 +643,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		 * and zero the final PAGE_ZERO_BYTES bytes. */
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
 		/* Get a page of memory. */
 		uint8_t *kpage = palloc_get_page (PAL_USER);
 		if (kpage == NULL)
@@ -783,10 +782,19 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-	if_->rsp = stack_bottom;
-	if(vm_claim_page(stack_bottom)) {
+	printf("===============setup stack===============\n");
+	// if(vm_claim_page(stack_bottom)) {
+	// struct page *stack_page = (struct page *)calloc(1, sizeof(struct page));
+	// stack_page->va = stack_bottom;
+	// stack_page->operations->type = VM_MARKER_0;
+	// if(vm_do_claim_page(stack_page)) {
+		printf("===============vm marker %d===============\n", VM_MARKER_0);
+	if(vm_alloc_page(VM_MARKER_0 | VM_ANON, stack_bottom, true)) {	
+		printf("===============setup stack true%d===============\n", VM_MARKER_0);
 		success = true;
+		if_->rsp = stack_bottom;
 	};
+	printf("===============setup stack done %d===============\n", success);
 	return success;
 }
 #endif /* VM */

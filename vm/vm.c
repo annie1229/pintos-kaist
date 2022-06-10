@@ -46,7 +46,7 @@ static struct frame *vm_evict_frame (void);
 bool
 vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		vm_initializer *init, void *aux) {
-	printf("vm alloc page init!!!!!\n");
+	printf("vm alloc page init!!!!!%d, %d\n", type, VM_TYPE(type));
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
@@ -57,21 +57,31 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
-		p->va = upage;
-		switch (type)
+		p->va = pg_round_down(upage);
+		// printf("type : %d, marker %d, & %d\n", type, VM_MARKER_0, type & VM_MARKER_0);
+		if (type & VM_MARKER_0) {
+			// printf("stack marker 0!!!!!!!!!!\n");
+			vm_claim_page(upage);
+			return true;
+		}
+		switch (VM_TYPE(type))
 		{
 			// case VM_UNINIT:
 			// 	uninit_new(p, upage, init, type, aux, NULL);
 			// 	vm_do_claim_page(p);
 			// 	break;
 			case VM_ANON:
-				uninit_new(p, upage, init, type, aux, anon_initializer);
-				vm_do_claim_page(p);
+				uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
+				// vm_do_claim_page(p);
 				break;
 			case VM_FILE:
-				uninit_new(p, upage, init, type, aux, file_backed_initializer);
-				vm_do_claim_page(p);
+				uninit_new(p, pg_round_down(upage), init, type, aux, file_backed_initializer);
+				// vm_do_claim_page(p);
 				break;
+			// case VM_MARKER_0:
+			// uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
+			// 	// vm_do_claim_page(p);
+			// 	break;
 			default:
 				goto err;
 		}
@@ -84,7 +94,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		// p->writable = f_info->writable;
 		// p->is_loaded = f_info->is_loaded;
 		/* TODO: Insert the page into the spt. */
-		// spt_insert_page(spt, p);
+		spt_insert_page(spt, p);
 
 		printf("vm alloc page init done!!!!!\n");
 		return true;
@@ -180,14 +190,13 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	/* TODO: Validate the fault */
-	struct page *page;
+	struct page *page = spt_find_page(spt, addr);;
 	// struct page *page = (struct page *)malloc(sizeof(struct page));
-	page = spt_find_page(spt, addr);
 
-	// if(page == NULL) {
-	// 	printf("vm hanele fault page null!!\n");
-	// 	return false;
-	// }
+	if(page == NULL) {
+		printf("vm hanele fault page null!!\n");
+		// return false;
+	}
 
 	if(write && !page->writable) {
 		printf("vm hanele fault page write!!\n");
@@ -209,10 +218,10 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
-	struct page *page = NULL;
+	struct page *page = (struct page *)calloc(1, sizeof(struct page));
 	/* TODO: Fill this function */
 	page->va = pg_round_down(va);
-	// printf("vm claim page %p!!\n", page->va);
+	printf("vm claim page %p!!\n", page->va);
 	return vm_do_claim_page (page);
 }
 
@@ -280,12 +289,17 @@ bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
 /* Returns the page containing the given virtual address, or a null pointer if no such page exists. */
 struct page *
 page_lookup (const void *address) {
-  struct page *p;
+  struct page p;
+  // struct page *p;
   struct hash_elem *e;
   struct supplemental_page_table *spt = &thread_current()->spt;
   
-  (*p).va = pg_round_down(address);
-	printf("page lookup %p!!!!%p\n", address, (*p).va);
-  e = hash_find (&spt->hash_page_table, &p->hash_elem);
+  p.va = pg_round_down(address);
+	printf("page lookup %p!!!!%p\n", address, p.va);
+  e = hash_find (&spt->hash_page_table, &p.hash_elem);
+	
+  // (*p).va = pg_round_down(address);
+	// printf("page lookup %p!!!!%p\n", address, (*p).va);
+  // e = hash_find (&spt->hash_page_table, &p->hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }
