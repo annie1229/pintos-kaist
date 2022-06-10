@@ -50,14 +50,13 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
-
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page (spt, upage) == NULL) {
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-		// struct page *p = (struct page *)malloc(sizeof(struct page)); /*TODO vm_claim_page이용*/		switch (type)
-		struct page *p; /*TODO vm_claim_page이용*/		
+		struct page *p = (struct page *)calloc(1, sizeof(struct page)); /*TODO vm_claim_page이용*/		
+		// struct page *p; /*TODO vm_claim_page이용*/		
 		switch (type)
 		{
 		case VM_ANON:
@@ -70,17 +69,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		default:
 			goto err;
 		}
-		/*lazy load TODO */
-		// struct file_info *file_info = (struct file_info *)aux;
-		// p->f = file_info->file;
-		// p->offset = file_info->offset;
-		// p->read_bytes = file_info->read_bytes;
-		// p->zero_bytes = file_info->zero_bytes;
-		// p->writable = file_info->writable;
-		// p->is_loaded = file_info->is_loaded;
-		// /* TODO: Insert the page into the spt. */
-		// spt_insert_page(spt, p);
-		vm_do_claim_page(p);
+		spt_insert_page(spt, p); /*spt install맞나? */
 		return true;
 	}
 err:
@@ -93,8 +82,6 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
 	page = page_lookup(va);
-	puts("here!!");
-	printf("%s\n", (char *)page->va);
 	return page;
 }
 
@@ -257,7 +244,6 @@ page_hash (const struct hash_elem *p_, void *aux UNUSED) {
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED) {
   const struct page *a = hash_entry (a_, struct page, hash_elem);
   const struct page *b = hash_entry (b_, struct page, hash_elem);
-
   return a->va < b->va;
 }
 
