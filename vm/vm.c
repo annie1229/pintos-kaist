@@ -46,7 +46,7 @@ static struct frame *vm_evict_frame (void);
 bool
 vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		vm_initializer *init, void *aux) {
-
+			printf("vm alloc page init!!!!!\n");
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
@@ -69,15 +69,19 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		default:
 			goto err;
 		}
-		struct file_info *aux = (struct file_info *)aux;
-		p->f = aux->file;
-		p->offset = aux->offset;
-		p->read_bytes = aux->read_bytes;
-		p->zero_bytes = aux->zero_bytes;
-		p->writable = aux->writable;
-		p->is_loaded = aux->is_loaded;
+		printf("vm alloc page init file info!!!!!\n");
+		struct file_info *f_info = (struct file_info *)aux;
+		p->f = f_info->file;
+		p->offset = f_info->offset;
+		p->read_bytes = f_info->read_bytes;
+		p->zero_bytes = f_info->zero_bytes;
+		p->writable = f_info->writable;
+		p->is_loaded = f_info->is_loaded;
 		/* TODO: Insert the page into the spt. */
 		spt_insert_page(spt, p);
+		// vm_do_claim_page(p);
+
+		printf("vm alloc page init done!!!!!\n");
 		return true;
 	}
 err:
@@ -90,6 +94,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
 	page = page_lookup(va);
+	printf("spt find!!!!!!!%p\n", page);
 	return page;
 }
 
@@ -97,13 +102,14 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
-			puts("middle!!!!!!!!!!!!!!!!!!!!!!");
 	int succ = false;
 	/* TODO: Fill this function. */
 	if(hash_insert(&spt->hash_page_table, &page->hash_elem) == NULL) {
 		succ = true;
+		printf("spt insert succ!!!!!\n");
 		return succ;
 	};
+	printf("spt insert fail!!!!!\n");
 	return succ;
 }
 
@@ -170,16 +176,20 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	/* TODO: Validate the fault */
 	struct page *page;
-	page->va = addr;
-	page = spt_find_page(spt, page);
+	// struct page *page = (struct page *)malloc(sizeof(struct page));
+	page = spt_find_page(spt, addr);
 
-	if(page==NULL) {
-		return false;
-	}
+	// if(page == NULL) {
+	// 	printf("vm hanele fault page null!!\n");
+	// 	return false;
+	// }
 
 	if(write && !page->writable) {
+		printf("vm hanele fault page write!!\n");
 		return false;
 	}
+	page->va = pg_round_down(addr);
+	printf("vm hanele fault page done!!\n");
 	return vm_do_claim_page (page);
 }
 
@@ -193,25 +203,29 @@ vm_dealloc_page (struct page *page) {
 
 /* Claim the page that allocate on VA. */
 bool
-vm_claim_page (void *va UNUSED) 
+vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function */
 	page->va = pg_round_down(va);
+	// printf("vm claim page %p!!\n", page->va);
 	return vm_do_claim_page (page);
 }
 
 /* Claim the PAGE and set up the mmu. */
 static bool
 vm_do_claim_page (struct page *page) {
+	// printf("vm do claim page start!!!!!!!\n");
 	struct frame *frame = vm_get_frame ();
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
+	// printf("vm do claim page %p!!\n", page->va);
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	hash_insert(&spt->hash_page_table, &page->hash_elem);
+	// printf("vm do claim page insert!!!!!!!\n");
 	return swap_in (page, frame->kva);
 }
 
@@ -265,6 +279,7 @@ page_lookup (const void *address) {
   struct supplemental_page_table *spt = &thread_current()->spt;
   
   p.va = pg_round_down(address);
+	// printf("page lookup %p!!!!\n", p.va);
   e = hash_find (&spt->hash_page_table, &p.hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }
