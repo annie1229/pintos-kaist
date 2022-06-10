@@ -532,10 +532,12 @@ void argument_stack(char **parse, int count, void **esp) {
 
 	// * argv[i] 문자열
 	for (int i = count - 1; -1 < i; i--) {
-    // printf("%d parse[%d]: '%s' / len: %d\n", (int)*esp, i, parse[i], strlen(parse[i]));
+    printf("%d parse[%d]: '%s' / len: %d\n", (int)*esp, i, parse[i], strlen(parse[i]));
+    printf("%p parse[%p]: '%p' / len: %d\n", (int)*esp, &i, parse[i], strlen(parse[i]));
     *esp -= (strlen(parse[i]) + 1);
     memcpy(*esp, parse[i], strlen(parse[i]) + 1);
 		// strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
+		printf("memcpyyyyyyyyyyyy\n");
 		size += strlen(parse[i]) + 1;
 		argv_address[i] = *esp;
 	}
@@ -546,20 +548,23 @@ void argument_stack(char **parse, int count, void **esp) {
       **(char **)esp = 0;
     }
   }
+			printf("1outtttttttttt\n");
 
   *esp -= 8;
   **(char **)esp = 0;
-
+ 		printf("o2uttttttttttt\n");
   // * argv[i] 주소
 	for (int i = count - 1; -1 < i; i--) {
 		*esp = *esp - 8;
 		memcpy(*esp, &argv_address[i], strlen(&argv_address[i]));
 	}
+			printf("ou3ttttttttttt\n");
 
 	// * return address(fake)
 	*esp = *esp - 8;
 	**(char **)esp = 0;
 
+		printf("outttt4ttttttt\n");
 }
 
 
@@ -792,7 +797,7 @@ setup_stack (struct intr_frame *if_) {
 	if(vm_alloc_page(VM_MARKER_0 | VM_ANON, stack_bottom, true)) {	
 		printf("===============setup stack true%d===============\n", VM_MARKER_0);
 		success = true;
-		if_->rsp = stack_bottom;
+		if_->rsp = USER_STACK;
 	};
 	printf("===============setup stack done %d===============\n", success);
 	return success;

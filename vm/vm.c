@@ -39,6 +39,7 @@ page_get_type (struct page *page) {
 static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
+static struct frame *vm_get_frame (void);
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -59,9 +60,19 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
 		p->va = pg_round_down(upage);
 		// printf("type : %d, marker %d, & %d\n", type, VM_MARKER_0, type & VM_MARKER_0);
+		// if (type & VM_MARKER_0) {
+		// 	// printf("stack marker 0!!!!!!!!!!\n");
+		// 	vm_claim_page(upage);
+		// 	return true;
+		// }
 		if (type & VM_MARKER_0) {
-			// printf("stack marker 0!!!!!!!!!!\n");
-			vm_claim_page(upage);
+			struct frame *f = (struct frame *)vm_get_frame();
+			struct supplemental_page_table *spt = &thread_current()->spt;
+			f->page = p;
+			p->frame = f;
+			p->writable = true;
+			p->is_loaded = true;
+			hash_insert(&spt->hash_page_table, &p->hash_elem);
 			return true;
 		}
 		switch (VM_TYPE(type))
@@ -193,9 +204,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = spt_find_page(spt, addr);;
 	// struct page *page = (struct page *)malloc(sizeof(struct page));
 
-	if(page == NULL) {
-		printf("vm hanele fault page null!!\n");
-		// return false;
+	if(page != NULL && page->is_loaded) {
+		printf("vm hanele fault page trueeeeeee!!\n");
+		return true;
 	}
 
 	if(write && !page->writable) {
