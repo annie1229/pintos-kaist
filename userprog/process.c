@@ -45,7 +45,7 @@ process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
 
-  // puts("debug choi create initd");
+    // puts("debug choi create initd");
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -320,7 +320,6 @@ void
 process_activate (struct thread *next) {
 	/* Activate thread's page tables. */
 	pml4_activate (next->pml4);
-
 	/* Set thread's kernel stack for use in processing interrupts. */
 	tss_update (next);
 }
@@ -755,6 +754,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		aux->zero_bytes = zero_bytes;
 		aux->writable = writable;
 		aux->is_loaded = false;
+
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;

@@ -56,7 +56,8 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-		struct page *p = (struct page *)malloc(sizeof(struct page));
+		// struct page *p = (struct page *)malloc(sizeof(struct page)); /*TODO vm_claim_page이용*/		switch (type)
+		struct page *p; /*TODO vm_claim_page이용*/		
 		switch (type)
 		{
 		case VM_ANON:
@@ -69,15 +70,17 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		default:
 			goto err;
 		}
-		struct file_info *aux = (struct file_info *)aux;
-		p->f = aux->file;
-		p->offset = aux->offset;
-		p->read_bytes = aux->read_bytes;
-		p->zero_bytes = aux->zero_bytes;
-		p->writable = aux->writable;
-		p->is_loaded = aux->is_loaded;
-		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, p);
+		/*lazy load TODO */
+		// struct file_info *file_info = (struct file_info *)aux;
+		// p->f = file_info->file;
+		// p->offset = file_info->offset;
+		// p->read_bytes = file_info->read_bytes;
+		// p->zero_bytes = file_info->zero_bytes;
+		// p->writable = file_info->writable;
+		// p->is_loaded = file_info->is_loaded;
+		// /* TODO: Insert the page into the spt. */
+		// spt_insert_page(spt, p);
+		vm_do_claim_page(p);
 		return true;
 	}
 err:
@@ -90,6 +93,8 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
 	page = page_lookup(va);
+	puts("here!!");
+	printf("%s\n", (char *)page->va);
 	return page;
 }
 
@@ -97,7 +102,6 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
-			puts("middle!!!!!!!!!!!!!!!!!!!!!!");
 	int succ = false;
 	/* TODO: Fill this function. */
 	if(hash_insert(&spt->hash_page_table, &page->hash_elem) == NULL) {
@@ -138,7 +142,7 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+	struct frame *frame = (struct frame *)malloc(sizeof(struct frame)); /* TODO CALLOC */
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
@@ -166,17 +170,17 @@ vm_handle_wp (struct page *page UNUSED) {
 bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
+
 	
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	/* TODO: Validate the fault */
 	struct page *page;
-	page->va = addr;
-	page = spt_find_page(spt, page);
+	page = spt_find_page(spt, addr);
 
 	if(page==NULL) {
 		return false;
 	}
-
+	page->va = addr;
 	if(write && !page->writable) {
 		return false;
 	}
@@ -193,7 +197,7 @@ vm_dealloc_page (struct page *page) {
 
 /* Claim the page that allocate on VA. */
 bool
-vm_claim_page (void *va UNUSED) 
+vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function */
 	page->va = pg_round_down(va);

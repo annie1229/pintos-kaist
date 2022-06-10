@@ -51,11 +51,7 @@ struct page {
 	struct hash_elem hash_elem;
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
-	union {
-		struct uninit_page uninit;
-		struct anon_page anon;
-		struct file_page file;
-	
+
 	bool writable;
 	bool is_loaded;
 	struct file* f;
@@ -70,6 +66,11 @@ struct page {
 	/* Swapping 과제에서 다룰 예정 */
 	size_t swap_slot; /* 스왑 슬롯 */
 
+	union {
+		struct uninit_page uninit;
+		struct anon_page anon;
+		struct file_page file;
+	
 #ifdef EFILESYS
 		struct page_cache page_cache;
 #endif
