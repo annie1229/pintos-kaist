@@ -46,7 +46,7 @@ static struct frame *vm_evict_frame (void);
 bool
 vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		vm_initializer *init, void *aux) {
-			printf("vm alloc page init!!!!!\n");
+	printf("vm alloc page init!!!!!\n");
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
@@ -56,30 +56,35 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-		struct page *p = (struct page *)malloc(sizeof(struct page));
+		struct page *p = (struct page *)calloc(1, sizeof(struct page));
+		p->va = upage;
 		switch (type)
 		{
-		case VM_ANON:
-			uninit_new(p, upage, init, type, aux, anon_initializer);
-			break;
-		
-		case VM_FILE:
-			uninit_new(p, upage, init, type, aux, file_backed_initializer);
-			break;
-		default:
-			goto err;
+			// case VM_UNINIT:
+			// 	uninit_new(p, upage, init, type, aux, NULL);
+			// 	vm_do_claim_page(p);
+			// 	break;
+			case VM_ANON:
+				uninit_new(p, upage, init, type, aux, anon_initializer);
+				vm_do_claim_page(p);
+				break;
+			case VM_FILE:
+				uninit_new(p, upage, init, type, aux, file_backed_initializer);
+				vm_do_claim_page(p);
+				break;
+			default:
+				goto err;
 		}
-		printf("vm alloc page init file info!!!!!\n");
-		struct file_info *f_info = (struct file_info *)aux;
-		p->f = f_info->file;
-		p->offset = f_info->offset;
-		p->read_bytes = f_info->read_bytes;
-		p->zero_bytes = f_info->zero_bytes;
-		p->writable = f_info->writable;
-		p->is_loaded = f_info->is_loaded;
+		// printf("vm alloc page init file info!!!!!\n");
+		// struct file_info *f_info = (struct file_info *)aux;
+		// p->f = f_info->file;
+		// p->offset = f_info->offset;
+		// p->read_bytes = f_info->read_bytes;
+		// p->zero_bytes = f_info->zero_bytes;
+		// p->writable = f_info->writable;
+		// p->is_loaded = f_info->is_loaded;
 		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, p);
-		// vm_do_claim_page(p);
+		// spt_insert_page(spt, p);
 
 		printf("vm alloc page init done!!!!!\n");
 		return true;
@@ -144,7 +149,7 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+	struct frame *frame = (struct frame *)calloc(1, sizeof(struct frame));
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
@@ -221,11 +226,11 @@ vm_do_claim_page (struct page *page) {
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-	// printf("vm do claim page %p!!\n", page->va);
+	printf("vm do claim page %p!!\n", page->va);
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	hash_insert(&spt->hash_page_table, &page->hash_elem);
-	// printf("vm do claim page insert!!!!!!!\n");
+	printf("vm do claim page insert!!!!!!!%d\n", VM_TYPE(page->operations->type));
 	return swap_in (page, frame->kva);
 }
 

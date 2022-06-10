@@ -717,6 +717,13 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	struct file_info *f_info = (struct file_info *)aux;
+	page->f = f_info->file;
+	page->offset = f_info->offset;
+	page->read_bytes = f_info->read_bytes;
+	page->zero_bytes = f_info->zero_bytes;
+	page->writable = f_info->writable;
+	page->is_loaded = f_info->is_loaded;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
