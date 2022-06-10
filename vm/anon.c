@@ -28,7 +28,9 @@ vm_anon_init (void) {
 bool
 anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */
+	printf("anon initialize!!!!!!!!111\n");
 	page->operations = &anon_ops;
+	printf("anon initialize!!!!!!!!222\n");
 
 	struct anon_page *anon_page = &page->anon;
 }

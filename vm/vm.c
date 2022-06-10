@@ -272,6 +272,7 @@ page_hash (const struct hash_elem *p_, void *aux UNUSED) {
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED) {
   const struct page *a = hash_entry (a_, struct page, hash_elem);
   const struct page *b = hash_entry (b_, struct page, hash_elem);
+	printf("hash>>>>>page_less %p &&&& %p\n", a->va, b->va);
 
   return a->va < b->va;
 }
@@ -279,12 +280,12 @@ bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
 /* Returns the page containing the given virtual address, or a null pointer if no such page exists. */
 struct page *
 page_lookup (const void *address) {
-  struct page p;
+  struct page *p;
   struct hash_elem *e;
   struct supplemental_page_table *spt = &thread_current()->spt;
   
-  p.va = pg_round_down(address);
-	// printf("page lookup %p!!!!\n", p.va);
-  e = hash_find (&spt->hash_page_table, &p.hash_elem);
+  (*p).va = pg_round_down(address);
+	printf("page lookup %p!!!!%p\n", address, (*p).va);
+  e = hash_find (&spt->hash_page_table, &p->hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }
