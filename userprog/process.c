@@ -532,7 +532,7 @@ void argument_stack(char **parse, int count, void **esp) {
 
 	// * argv[i] 문자열
 	for (int i = count - 1; -1 < i; i--) {
-    printf("%d parse[%d]: '%s' / len: %d\n", (int)*esp, i, parse[i], strlen(parse[i]));
+    printf("%p parse[%d]: '%s' / len: %d\n", *esp, i, parse[i], strlen(parse[i]));
     printf("%p parse[%p]: '%p' / len: %d\n", (int)*esp, &i, parse[i], strlen(parse[i]));
     *esp -= (strlen(parse[i]) + 1);
     memcpy(*esp, parse[i], strlen(parse[i]) + 1);
@@ -721,6 +721,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	printf("-----------------lazy load seg!!!!!!!!!!!!!!!\n");
 	struct file_info *f_info = (struct file_info *)aux;
 	page->f = f_info->file;
 	page->offset = f_info->offset;
@@ -762,10 +763,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		struct file_info *aux;
 		aux->file = file;
 		aux->offset = ofs;
-		aux->read_bytes = read_bytes;
-		aux->zero_bytes = zero_bytes;
+		aux->read_bytes = page_read_bytes;
+		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
 		aux->is_loaded = false;
+		printf("load segment >>>>> upage %p\n", upage);
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;

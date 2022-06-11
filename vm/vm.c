@@ -72,7 +72,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			p->frame = f;
 			p->writable = true;
 			p->is_loaded = true;
-			hash_insert(&spt->hash_page_table, &p->hash_elem);
+			/* Add the page to the process's address space. */
+			pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
+			// hash_insert(&spt->hash_page_table, &p->hash_elem);
+			spt_insert_page(&spt->hash_page_table, p);
 			return true;
 		}
 		switch (VM_TYPE(type))
@@ -201,14 +204,19 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	/* TODO: Validate the fault */
-	struct page *page = spt_find_page(spt, addr);;
+	struct page *page = spt_find_page(spt, addr);
 	// struct page *page = (struct page *)malloc(sizeof(struct page));
 
-	if(page != NULL && page->is_loaded) {
-		printf("vm hanele fault page trueeeeeee!!\n");
-		return true;
-	}
+	// if(page != NULL && page->is_loaded) {
+	// 	printf("vm hanele fault page trueeeeeee!!\n");
+	// 	return true;
+	// }
 
+	if(page != NULL && not_present) {
+		printf("vm hanele fault page trueeeeeee!!\n");
+		return anon_initializer(page, VM_ANON, page->frame->kva);
+		// return true;
+	}
 	if(write && !page->writable) {
 		printf("vm hanele fault page write!!\n");
 		return false;
@@ -229,9 +237,10 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
-	struct page *page = (struct page *)calloc(1, sizeof(struct page));
+	// struct page *page = (struct page *)calloc(1, sizeof(struct page));
+	struct page *page = spt_find_page(&thread_current()->spt, va);
 	/* TODO: Fill this function */
-	page->va = pg_round_down(va);
+	// page->va = pg_round_down(va);
 	printf("vm claim page %p!!\n", page->va);
 	return vm_do_claim_page (page);
 }
@@ -240,16 +249,17 @@ vm_claim_page (void *va UNUSED) {
 static bool
 vm_do_claim_page (struct page *page) {
 	// printf("vm do claim page start!!!!!!!\n");
+	struct thread *cur = thread_current();
 	struct frame *frame = vm_get_frame ();
-	struct supplemental_page_table *spt = &thread_current()->spt;
+	struct supplemental_page_table *spt = &cur->spt;
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 	printf("vm do claim page %p!!\n", page->va);
-
+	pml4_set_page(cur->pml4, page->va, frame->kva, page->writable);
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	hash_insert(&spt->hash_page_table, &page->hash_elem);
+	// hash_insert(&spt->hash_page_table, &page->hash_elem);
 	printf("vm do claim page insert!!!!!!!%d\n", VM_TYPE(page->operations->type));
 	return swap_in (page, frame->kva);
 }

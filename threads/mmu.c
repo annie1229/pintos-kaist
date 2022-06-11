@@ -63,6 +63,7 @@ pdpe_walk (uint64_t *pdpe, const uint64_t va, int create) {
  * pointer is returned. */
 uint64_t *
 pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {
+	// printf("hererwererwerwerewr\n");
 	uint64_t *pte = NULL;
 	int idx = PML4 (va);
 	int allocated = 0;
@@ -213,6 +214,7 @@ pml4_activate (uint64_t *pml4) {
 void *
 pml4_get_page (uint64_t *pml4, const void *uaddr) {
 	ASSERT (is_user_vaddr (uaddr));
+	printf("pml4 get page\n");
 
 	uint64_t *pte = pml4e_walk (pml4, (uint64_t) uaddr, 0);
 
@@ -235,7 +237,7 @@ pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw) {
 	ASSERT (pg_ofs (kpage) == 0);
 	ASSERT (is_user_vaddr (upage));
 	ASSERT (pml4 != base_pml4);
-
+	printf("pml4 set page\n");
 	uint64_t *pte = pml4e_walk (pml4, (uint64_t) upage, 1);
 
 	if (pte)
