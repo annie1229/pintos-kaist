@@ -55,21 +55,75 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-		struct page *p = (struct page *)calloc(1, sizeof(struct page)); /*TODO vm_claim_page이용*/		
-		// struct page *p; /*TODO vm_claim_page이용*/		
+		struct page *p = (struct page *)calloc(1, sizeof(struct page));
+		printf("allocated page!!!!!!%p\n", p);
+		p->va = pg_round_down(upage);
+		// printf("type : %d, marker %d, & %d\n", type, VM_MARKER_0, type & VM_MARKER_0);
+		// if (type & VM_MARKER_0) {
+		// 	// printf("stack marker 0!!!!!!!!!!\n");
+		// 	vm_claim_page(upage);
+		// 	return true;
+		// }
+
+		if (type & VM_MARKER_0) {
+			// uninit_new(p, pg_round_down(upage), init, VM_MARKER_0, aux, anon_initializer);
+			// uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
+			// struct frame *f = (struct frame *)vm_get_frame();
+			// struct supplemental_page_table *spt = &thread_current()->spt;
+			*p = (struct page) {
+				.operations = NULL,
+				.va = upage,
+				.frame = NULL, 
+				.uninit = (struct uninit_page) {
+					.init = init,
+					.type = VM_MARKER_0,
+					.aux = aux,
+					.page_initializer = NULL,
+				}
+			};
+			puts("claim!!!!!!!!!!!!!!");
+			vm_do_claim_page(p);
+			// printf("vm marker!!!!!!!!!!%d", (*p).uninit.type);
+			// f->page = p;
+			// p->frame = f;
+			// p->writable = true;
+			// p->is_loaded = true;
+			// hash_insert(&spt->hash_page_table, &p->hash_elem);
+			// thread_exit();
+			// spt_insert_page(spt, p);
+			return true;
+		}
+	
 		switch (type)
 		{
-		case VM_ANON:
-			uninit_new(p, upage, init, type, aux, anon_initializer);
-			break;
-		
-		case VM_FILE:
-			uninit_new(p, upage, init, type, aux, file_backed_initializer);
-			break;
-		default:
-			goto err;
+			// case VM_UNINIT:
+			// 	uninit_new(p, upage, init, type, aux, NULL);
+			// 	vm_do_claim_page(p);
+			// 	break;
+			case VM_ANON:
+				uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
+				// vm_do_claim_page(p);
+				break;
+			case VM_FILE:
+				uninit_new(p, pg_round_down(upage), init, type, aux, file_backed_initializer);
+				// vm_do_claim_page(p);
+				break;
+			default:
+				goto err;
 		}
-		spt_insert_page(spt, p); /*spt install맞나? */
+	
+		// printf("vm alloc page init file info!!!!!\n");
+		// struct file_info *f_info = (struct file_info *)aux;
+		// p->f = f_info->file;
+		// p->offset = f_info->offset;
+		// p->read_bytes = f_info->read_bytes;
+		// p->zero_bytes = f_info->zero_bytes;
+		// p->writable = f_info->writable;
+		// p->is_loaded = f_info->is_loaded;
+		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, p);
+
+		printf("vm alloc page init done!!!!!\n");
 		return true;
 	}
 err:
@@ -126,7 +180,7 @@ vm_evict_frame (void) {
 /* palloc() and get frame. If there is no available page, evict the page
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
- * space.*/
+* space.*/
 static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = (struct frame *)malloc(sizeof(struct frame)); /* TODO CALLOC */
@@ -157,6 +211,7 @@ vm_handle_wp (struct page *page UNUSED) {
 bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
+<<<<<<< HEAD
 
 	
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
@@ -169,6 +224,23 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	}
 	page->va = addr;
 	if(write && !page->writable) {
+=======
+			puts("falllllllllllllllllllllllllllllllllllllt");
+	
+	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
+	/* TODO: Validate the fault */
+	struct page *page = spt_find_page(spt, addr);
+	// struct page *page = (struct page *)malloc(sizeof(struct page));
+
+	if(page != NULL && page->is_loaded) {
+		printf("vm hanele fault page trueeeeeee!!\n");
+		// thread_exit();
+		return true;
+	}
+
+	if(write && !page->writable) {
+		printf("vm hanele fault page write!!\n");
+>>>>>>> a6bbd01 (use do_claim to make stack page)
 		return false;
 	}
 	return vm_do_claim_page (page);
@@ -203,6 +275,12 @@ vm_do_claim_page (struct page *page) {
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	hash_insert(&spt->hash_page_table, &page->hash_elem);
+	// printf("vm do claim page insert!!!!!!!%d\n", VM_TYPE(page->operations->type));
+	puts("done!!!!");
+	if((*page).uninit.type == VM_MARKER_0) {
+		puts("tur!!!!!!!!!!!!!!!!!!!!!!eee");
+		return true;
+	}
 	return swap_in (page, frame->kva);
 }
 
@@ -256,5 +334,15 @@ page_lookup (const void *address) {
   
   p.va = pg_round_down(address);
   e = hash_find (&spt->hash_page_table, &p.hash_elem);
+<<<<<<< HEAD
+=======
+  if(e==NULL) {
+	puts("NULLLLLLLLLLLLLLLLLLLLLLLLLLLLL");
+  }
+	
+  // (*p).va = pg_round_down(address);
+	// printf("page lookup %p!!!!%p\n", address, (*p).va);
+  // e = hash_find (&spt->hash_page_table, &p->hash_elem);
+>>>>>>> a6bbd01 (use do_claim to make stack page)
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }

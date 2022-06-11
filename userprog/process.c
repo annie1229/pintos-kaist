@@ -491,7 +491,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-  
+  puts("helllo!!!");
   argument_stack(argv, cnt, &if_->rsp);
   if_->R.rdi = cnt;
   if_->R.rsi = if_->rsp + 8;
@@ -711,6 +711,7 @@ install_page (void *upage, void *kpage, bool writable) {
 
 static bool
 lazy_load_segment (struct page *page, void *aux) {
+	puts("hey!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
