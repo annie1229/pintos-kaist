@@ -62,13 +62,13 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		// printf("type : %d, marker %d, & %d\n", type, VM_MARKER_0, type & VM_MARKER_0);
 		if (type & VM_MARKER_0) {
 			struct frame *f = (struct frame *)vm_get_frame();
+			uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
 			f->page = p;
 			p->frame = f;
 			p->writable = true;
 			p->is_loaded = true;
 			/* Add the page to the process's address space. */
 			pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
-			// hash_insert(&spt->hash_page_table, &p->hash_elem);
 			spt_insert_page(spt, p);
 			return true;
 		}
@@ -76,6 +76,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			struct frame *f = (struct frame *)vm_get_frame();
 			struct page *parent_page = aux;
 			memcpy(p, parent_page, sizeof(struct page));
+			p->va = pg_round_down(upage);
 			f->page = p;
 			p->frame = f;
 			/* Add the page to the process's address space. */
@@ -98,8 +99,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		p->writable = writable;
 		spt_insert_page(spt, p);
 
-		// printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>initialize insert upage %u\n", upage);
-		// printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>initialize insert page %u\n", p->va);
 		// printf("vm alloc page init done!!!!!\n");
 		return true;
 	}
@@ -289,7 +288,8 @@ static hash_action_func delete_elem;
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
-	free(p);
+	vm_dealloc_page(p);
+	// free(p);
 }
 
 /* Free the resource hold by the supplemental page table */

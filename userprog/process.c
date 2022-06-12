@@ -215,7 +215,6 @@ process_exec (void *f_name) {
 
 	// * VM 추가
 	// vm_init();
-	// printf("before load==========================\n");
 	/* And then load the binary */
 	supplemental_page_table_init (&thread_current ()->spt);
 	success = load (file_name, &_if);
@@ -223,7 +222,6 @@ process_exec (void *f_name) {
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
-	// printf("before do iret !!!!!!!!!!!!!!!!!!!!!!\n");
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -731,11 +729,14 @@ lazy_load_segment (struct page *page, void *aux) {
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read fail!!!!!!!!!!!\n");
+		vm_dealloc_page(page);
+		free(aux);
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
 	// memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
 	page->is_loaded = true;
+	free(aux);
 	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
 	return true;
 }
