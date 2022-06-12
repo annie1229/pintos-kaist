@@ -72,6 +72,17 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			spt_insert_page(spt, p);
 			return true;
 		}
+		if (type & VM_MARKER_1) {
+			struct frame *f = (struct frame *)vm_get_frame();
+			struct page *parent_page = aux;
+			memcpy(p, parent_page, sizeof(struct page));
+			f->page = p;
+			p->frame = f;
+			/* Add the page to the process's address space. */
+			pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
+			spt_insert_page(spt, p);
+			return true;
+		}
 		switch (VM_TYPE(type))
 		{
 			case VM_ANON:
@@ -230,7 +241,7 @@ bool
 vm_claim_page (void *va UNUSED) {
 	struct page *page = spt_find_page(&thread_current()->spt, va);
 	/* TODO: Fill this function */
-	printf("vm claim page %p!!\n", page->va);
+	// printf("vm claim page %p!!\n", page->va);
 	return vm_do_claim_page (page);
 }
 
@@ -264,14 +275,21 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
-	// struct hash_iterator i;
+	struct hash_iterator i;
 
-  // hash_first (&i, src);
-  // while (hash_next (&i))
-  // {
-  // 	struct page *p = hash_entry (hash_cur (&i), struct page, page_table_elem);
-	// 	hash_insert(dst, &p->page_table_elem);
-	// }
+  hash_first (&i, &src->hash_page_table);
+  while (hash_next (&i))
+  {
+  	struct page *p = hash_entry (hash_cur (&i), struct page, hash_elem);
+		vm_alloc_page_with_initializer(page_get_type(p) | VM_MARKER_1, p->va, p->writable, NULL, p);
+	}
+}
+
+static hash_action_func delete_elem;
+
+static void delete_elem(struct hash_elem *hash_elem, void* aux) {
+	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
+	free(p);
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -279,6 +297,8 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+
+	hash_destroy(&spt->hash_page_table, delete_elem);
 }
 
 /* Returns a hash value for page p. */

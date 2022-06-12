@@ -28,9 +28,6 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 		enum vm_type type, void *aux,
 		bool (*initializer)(struct page *, enum vm_type, void *)) {
 	ASSERT (page != NULL);
-	struct file_info *aux2 = (struct file_info *)aux;
-
-	// printf("uninit new read %d, zero %d\n", aux2->read_bytes, aux2->zero_bytes);
 	
 	*page = (struct page) {
 		.operations = &uninit_ops,
