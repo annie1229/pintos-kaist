@@ -28,7 +28,10 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 		enum vm_type type, void *aux,
 		bool (*initializer)(struct page *, enum vm_type, void *)) {
 	ASSERT (page != NULL);
+	struct file_info *aux2 = (struct file_info *)aux;
 
+	// printf("uninit new read %d, zero %d\n", aux2->read_bytes, aux2->zero_bytes);
+	
 	*page = (struct page) {
 		.operations = &uninit_ops,
 		.va = va,
@@ -45,18 +48,18 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 /* Initalize the page on first fault */
 static bool
 uninit_initialize (struct page *page, void *kva) {
-	printf("swap!!!!!uninit_initialize\n");
+	// printf("swap!!!!!uninit_initialize\n");
 	struct uninit_page *uninit = &page->uninit;
 
-	printf("swap!!!!!uninit_initialize22222\n");
 	/* Fetch first, page_initialize may overwrite the values */
 	vm_initializer *init = uninit->init;
 	void *aux = uninit->aux;
+	struct file_info *aux2 = (struct file_info *)uninit->aux;
 
-	printf("swap!!!!!uninit_initialize3333\n");
+	// printf("swap!!!!!uninit_initialize type: %d init %d read %d, zero %d\n", uninit->type, init, aux2->read_bytes, aux2->zero_bytes);
 	/* TODO: You may need to fix this function. */
-	return uninit->page_initializer (page, uninit->type, kva) &&
-		(init ? init (page, aux) : true);
+	return uninit->page_initializer (page, uninit->type, kva) && // anon_initializer
+		(init ? init (page, aux) : true); // lazy_load
 }
 
 /* Free the resources hold by uninit_page. Although most of pages are transmuted

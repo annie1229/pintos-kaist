@@ -413,6 +413,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* Open executable file. */
 	file = filesys_open (argv[0]);
+	// printf("--------open file argv %s---------\n", argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -532,12 +533,11 @@ void argument_stack(char **parse, int count, void **esp) {
 
 	// * argv[i] 문자열
 	for (int i = count - 1; -1 < i; i--) {
-    printf("%p parse[%d]: '%s' / len: %d\n", *esp, i, parse[i], strlen(parse[i]));
-    printf("%p parse[%p]: '%p' / len: %d\n", (int)*esp, &i, parse[i], strlen(parse[i]));
+    // printf("%p parse[%d]: '%s' / len: %d\n", *esp, i, parse[i], strlen(parse[i]));
+    // printf("%p parse[%p]: '%p' / len: %d\n", (int)*esp, &i, parse[i], strlen(parse[i]));
     *esp -= (strlen(parse[i]) + 1);
     memcpy(*esp, parse[i], strlen(parse[i]) + 1);
 		// strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
-		printf("memcpyyyyyyyyyyyy\n");
 		size += strlen(parse[i]) + 1;
 		argv_address[i] = *esp;
 	}
@@ -548,23 +548,18 @@ void argument_stack(char **parse, int count, void **esp) {
       **(char **)esp = 0;
     }
   }
-			printf("1outtttttttttt\n");
 
   *esp -= 8;
   **(char **)esp = 0;
- 		printf("o2uttttttttttt\n");
   // * argv[i] 주소
 	for (int i = count - 1; -1 < i; i--) {
 		*esp = *esp - 8;
 		memcpy(*esp, &argv_address[i], strlen(&argv_address[i]));
 	}
-			printf("ou3ttttttttttt\n");
 
 	// * return address(fake)
 	*esp = *esp - 8;
 	**(char **)esp = 0;
-
-		printf("outttt4ttttttt\n");
 }
 
 
@@ -721,14 +716,27 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	printf("-----------------lazy load seg!!!!!!!!!!!!!!!\n");
+	// printf("-----------------lazy load seg!!!!!!!!!!!!!!!\n");
+	// printf("va : %p, kva: %p\n", page->va, page->frame->kva);
 	struct file_info *f_info = (struct file_info *)aux;
+	
 	page->f = f_info->file;
 	page->offset = f_info->offset;
 	page->read_bytes = f_info->read_bytes;
 	page->zero_bytes = f_info->zero_bytes;
 	page->writable = f_info->writable;
 	page->is_loaded = f_info->is_loaded;
+	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", f_info->file, page->frame->kva);
+	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
+	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
+		// printf("lazy load file_read fail!!!!!!!!!!!\n");
+		return false;
+	}
+	// printf("lazy load file_read succ!!!!!!!!!!!\n");
+	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
+	page->is_loaded = true;
+	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -751,7 +759,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
-
+	// printf("----=====call load seg=====-----%p writable %s\n", upage, writable ? "true" : "false");
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
@@ -760,20 +768,21 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		struct file_info *aux;
+		struct file_info *aux = calloc(1, sizeof(struct file_info));
 		aux->file = file;
 		aux->offset = ofs;
 		aux->read_bytes = page_read_bytes;
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
 		aux->is_loaded = false;
-		printf("load segment >>>>> upage %p\n", upage);
+		// printf("load segment >>>>> upage %p read %d zero %d writable %s\n", upage, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
+		ofs += page_read_bytes;
 		upage += PGSIZE;
 	}
 	return true;
@@ -789,19 +798,12 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-	printf("===============setup stack===============\n");
-	// if(vm_claim_page(stack_bottom)) {
-	// struct page *stack_page = (struct page *)calloc(1, sizeof(struct page));
-	// stack_page->va = stack_bottom;
-	// stack_page->operations->type = VM_MARKER_0;
-	// if(vm_do_claim_page(stack_page)) {
-		printf("===============vm marker %d===============\n", VM_MARKER_0);
-	if(vm_alloc_page(VM_MARKER_0 | VM_ANON, stack_bottom, true)) {	
-		printf("===============setup stack true%d===============\n", VM_MARKER_0);
+	// printf("===============setup stack start===============\n");
+	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {	
 		success = true;
 		if_->rsp = USER_STACK;
 	};
-	printf("===============setup stack done %d===============\n", success);
+	// printf("===============setup stack done %d===============\n", success);
 	return success;
 }
 #endif /* VM */
