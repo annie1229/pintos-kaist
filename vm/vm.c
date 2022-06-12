@@ -75,6 +75,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		if (type & VM_MARKER_1) {
 			struct frame *f = (struct frame *)vm_get_frame();
 			struct page *parent_page = aux;
+			// printf("vm init marker 1!!!!! copy parent page");
 			memcpy(p, parent_page, sizeof(struct page));
 			p->va = pg_round_down(upage);
 			f->page = p;
@@ -101,6 +102,8 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 		// printf("vm alloc page init done!!!!!\n");
 		return true;
+	} else {
+		// printf("vm initialize spt table is not null!!!!!!!!!!!\n");
 	}
 err:
 	return false;
@@ -168,7 +171,7 @@ vm_get_frame (void) {
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
 		frame = NULL;
-		PANIC("todo vm_get_frame");
+		// PANIC("todo vm_get_frame");
 	}
 	frame->kva = kva;
 	frame->page = NULL;
@@ -202,11 +205,12 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	// 	return true;
 	// }
 
-	// if(page != NULL && not_present) {
-	// 	printf("vm hanele fault page trueeeeeee!!\n");
-	// 	return anon_initializer(page, VM_ANON, page->frame->kva);
-	// 	// return true;
-	// }
+	if(page != NULL && not_present) {
+		// printf("vm hanele fault page trueeeeeee!!\n");
+		page->va = pg_round_down(addr);
+		return vm_do_claim_page (page);
+		// return true;
+	}
 	if (page == NULL) {
 		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
 		return false;
@@ -289,7 +293,6 @@ static hash_action_func delete_elem;
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
 	vm_dealloc_page(p);
-	// free(p);
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -297,8 +300,8 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-
-	hash_destroy(&spt->hash_page_table, delete_elem);
+	hash_clear(&spt->hash_page_table, &delete_elem);
+	// hash_destroy(&spt->hash_page_table, delete_elem);
 }
 
 /* Returns a hash value for page p. */

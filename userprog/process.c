@@ -215,13 +215,21 @@ process_exec (void *f_name) {
 
 	// * VM 추가
 	// vm_init();
+	
 	/* And then load the binary */
-	supplemental_page_table_init (&thread_current ()->spt);
+	// printf("process exec 11111\n");
+
+// #ifdef VM
+// 	supplemental_page_table_init (&thread_current ()->spt);
+// #endif
+	// printf("process exec 22222\n");
 	success = load (file_name, &_if);
 	/* If load failed, quit. */
+	// printf("process exec 33333 %s\n", file_name);
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
+	// printf("process exec 44444\n");
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -402,12 +410,12 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
-	char *token, *save_ptr;
-	char *argv[64];
-	uint64_t cnt = 0;
+  char *token, *save_ptr;
+  char *argv[128];
+  uint64_t argc = 0;
 
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-		argv[cnt++] = token;
+		argv[argc++] = token;
 	}
 
 	/* Open executable file. */
@@ -495,12 +503,13 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
   
-  argument_stack(argv, cnt, &if_->rsp);
-  if_->R.rdi = cnt;
+	argument_stack(argv, argc, &if_->rsp);
+  if_->R.rdi = argc;
   if_->R.rsi = if_->rsp + 8;
 
 	success = true;
-
+	
+	// hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
   // * 추가
   t->run_file = file;
   file_deny_write(file);
@@ -508,6 +517,44 @@ load (const char *file_name, struct intr_frame *if_) {
 done:
 	/* We arrive here whether the load is successful or not. */
 	return success;
+}
+
+void argument_stack(char **argv, int argc, void **rsp) {
+  char *argv_address[argc];
+  uint8_t size = 0;
+
+	// * argv[i] 문자열
+	for (int i = argc - 1; -1 < i; i--) {
+    // printf("%d argv[%d]: '%s' / len: %d\n", (int)*rsp, i, argv[i], strlen(argv[i]));
+    *rsp -= (strlen(argv[i]) + 1);
+    memcpy(*rsp, argv[i], strlen(argv[i]) + 1);
+		// strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
+		size += strlen(argv[i]) + 1;
+		argv_address[i] = *rsp;
+	}
+
+  if (size % 8) {
+		for (int i = (8 - (size % 8)); 0 < i; i--) {
+			*rsp -= 1;
+      **(char **)rsp = 0;
+    }
+  }
+
+  *rsp -= 8;
+  // **(char **)rsp = 0;
+	memset(*rsp, 0, sizeof(char *));
+	// memset (*rsp, 0, 64);
+
+  // * argv[i] 주소
+	for (int i = argc - 1; -1 < i; i--) {
+		*rsp = *rsp - 8;
+		memcpy(*rsp, &argv_address[i], sizeof(char *));
+	}
+
+	// * return address(fake)
+	*rsp = *rsp - 8;
+	// **(char **)rsp = 0;
+	memset(*rsp, 0, sizeof(char *));
 }
 
 struct thread *get_child_process(int pid) {
@@ -524,43 +571,6 @@ struct thread *get_child_process(int pid) {
   }
   return NULL;
 }
-
-void argument_stack(char **parse, int count, void **esp) {
-  
-  char *argv_address[count];
-  uint8_t size = 0;
-
-	// * argv[i] 문자열
-	for (int i = count - 1; -1 < i; i--) {
-    // printf("%p parse[%d]: '%s' / len: %d\n", *esp, i, parse[i], strlen(parse[i]));
-    // printf("%p parse[%p]: '%p' / len: %d\n", (int)*esp, &i, parse[i], strlen(parse[i]));
-    *esp -= (strlen(parse[i]) + 1);
-    memcpy(*esp, parse[i], strlen(parse[i]) + 1);
-		// strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
-		size += strlen(parse[i]) + 1;
-		argv_address[i] = *esp;
-	}
-
-  if (size % 8) {
-		for (int i = (8 - (size % 8)); 0 < i; i--) {
-			*esp -= 1;
-      **(char **)esp = 0;
-    }
-  }
-
-  *esp -= 8;
-  **(char **)esp = 0;
-  // * argv[i] 주소
-	for (int i = count - 1; -1 < i; i--) {
-		*esp = *esp - 8;
-		memcpy(*esp, &argv_address[i], strlen(&argv_address[i]));
-	}
-
-	// * return address(fake)
-	*esp = *esp - 8;
-	**(char **)esp = 0;
-}
-
 
 /* Checks whether PHDR describes a valid, loadable segment in
  * FILE and returns true if so, false otherwise. */
@@ -729,12 +739,12 @@ lazy_load_segment (struct page *page, void *aux) {
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read fail!!!!!!!!!!!\n");
-		vm_dealloc_page(page);
 		free(aux);
+		vm_dealloc_page(page);
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
-	// memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
+	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
 	page->is_loaded = true;
 	free(aux);
 	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
