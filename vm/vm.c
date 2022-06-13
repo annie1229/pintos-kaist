@@ -73,15 +73,20 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			return true;
 		}
 		if (type & VM_MARKER_1) {
-			struct frame *f = (struct frame *)vm_get_frame();
-			struct page *parent_page = aux;
+			// struct frame *f = (struct frame *)calloc(1, sizeof(struct frame));
+			struct frame *f = vm_get_frame();
+			struct page *parent_page = (struct page *)aux;
 			// printf("vm init marker 1!!!!! copy parent page");
 			memcpy(p, parent_page, sizeof(struct page));
+			// printf("copy parent->frame->kva %p\n", parent_page->frame->kva);
+			// free(parent_page);
 			p->va = pg_round_down(upage);
+			// f->kva = parent_page->frame->kva;
+			memcpy(f->kva, parent_page->frame->kva, PGSIZE);
 			f->page = p;
 			p->frame = f;
 			/* Add the page to the process's address space. */
-			pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
+			pml4_set_page(thread_current()->pml4, p->va, p->frame->kva, p->writable);
 			spt_insert_page(spt, p);
 			return true;
 		}
@@ -171,7 +176,7 @@ vm_get_frame (void) {
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
 		frame = NULL;
-		// PANIC("todo vm_get_frame");
+		PANIC("todo vm_get_frame");
 	}
 	frame->kva = kva;
 	frame->page = NULL;
@@ -205,12 +210,12 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	// 	return true;
 	// }
 
-	if(page != NULL && not_present) {
-		// printf("vm hanele fault page trueeeeeee!!\n");
-		page->va = pg_round_down(addr);
-		return vm_do_claim_page (page);
-		// return true;
-	}
+	// if(page != NULL && not_present) {
+	// 	printf("vm hanele fault page trueeeeeee!!\n");
+	// 	page->va = pg_round_down(addr);
+	// 	return vm_do_claim_page (page);
+	// 	// return true;
+	// }
 	if (page == NULL) {
 		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
 		return false;
@@ -283,12 +288,13 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
   hash_first (&i, &src->hash_page_table);
   while (hash_next (&i))
   {
-  	struct page *p = hash_entry (hash_cur (&i), struct page, hash_elem);
+  	// struct page *p = calloc(1, sizeof(struct page));
+		struct page *p = hash_entry (hash_cur (&i), struct page, hash_elem);
+		// memcpy(p, parent, sizeof(struct page));
 		vm_alloc_page_with_initializer(page_get_type(p) | VM_MARKER_1, p->va, p->writable, NULL, p);
 	}
+	return true;
 }
-
-static hash_action_func delete_elem;
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
@@ -300,8 +306,8 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	hash_clear(&spt->hash_page_table, &delete_elem);
-	// hash_destroy(&spt->hash_page_table, delete_elem);
+	// hash_clear(&spt->hash_page_table, &delete_elem);
+	hash_destroy(&spt->hash_page_table, delete_elem);
 }
 
 /* Returns a hash value for page p. */

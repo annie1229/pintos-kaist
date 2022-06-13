@@ -219,9 +219,9 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	// printf("process exec 11111\n");
 
-// #ifdef VM
-// 	supplemental_page_table_init (&thread_current ()->spt);
-// #endif
+#ifdef VM
+	supplemental_page_table_init (&thread_current ()->spt);
+#endif
 	// printf("process exec 22222\n");
 	success = load (file_name, &_if);
 	/* If load failed, quit. */
