@@ -5,6 +5,7 @@
 #include "vm/inspect.h"
 #include "hash.h"
 #include "threads/vaddr.h"
+#include "lib/string.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -59,7 +60,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
 		p->va = pg_round_down(upage);
-		// printf("type : %d, marker %d, & %d\n", type, VM_MARKER_0, type & VM_MARKER_0);
+		
 		if (type & VM_MARKER_0) {
 			struct frame *f = (struct frame *)vm_get_frame();
 			uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
@@ -73,20 +74,24 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			return true;
 		}
 		if (type & VM_MARKER_1) {
-			// struct frame *f = (struct frame *)calloc(1, sizeof(struct frame));
-			struct frame *f = vm_get_frame();
 			struct page *parent_page = (struct page *)aux;
-			// printf("vm init marker 1!!!!! copy parent page");
-			memcpy(p, parent_page, sizeof(struct page));
-			// printf("copy parent->frame->kva %p\n", parent_page->frame->kva);
-			// free(parent_page);
-			p->va = pg_round_down(upage);
-			// f->kva = parent_page->frame->kva;
-			memcpy(f->kva, parent_page->frame->kva, PGSIZE);
+			void *_aux = (parent_page->uninit).aux;
+			uninit_new(p, pg_round_down(upage), init, page_get_type(parent_page), _aux, anon_initializer);
+			p->writable = parent_page->writable;
+			p->is_loaded = parent_page->is_loaded;
+			p->f = parent_page->f;
+			p->offset = parent_page->offset;
+			p->read_bytes = parent_page->read_bytes;
+			p->zero_bytes = parent_page->zero_bytes;
+
+			struct frame *f = vm_get_frame();
 			f->page = p;
 			p->frame = f;
+			if(parent_page->frame != NULL) {
+				memcpy(f->kva, parent_page->frame->kva, PGSIZE);
+				pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
+			}
 			/* Add the page to the process's address space. */
-			pml4_set_page(thread_current()->pml4, p->va, p->frame->kva, p->writable);
 			spt_insert_page(spt, p);
 			return true;
 		}
@@ -284,7 +289,7 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 	struct hash_iterator i;
-
+  
   hash_first (&i, &src->hash_page_table);
   while (hash_next (&i))
   {
