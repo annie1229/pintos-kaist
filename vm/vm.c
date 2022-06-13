@@ -205,19 +205,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	/* TODO: Validate the fault */
 	struct page *page = spt_find_page(spt, addr);
-	// struct page *page = (struct page *)malloc(sizeof(struct page));
-
-	// if(page != NULL && page->is_loaded) {
-	// 	printf("vm hanele fault page trueeeeeee!!\n");
-	// 	return true;
-	// }
-
-	// if(page != NULL && not_present) {
-	// 	printf("vm hanele fault page trueeeeeee!!\n");
-	// 	page->va = pg_round_down(addr);
-	// 	return vm_do_claim_page (page);
-	// 	// return true;
-	// }
 	if (page == NULL) {
 		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
 		return false;
@@ -226,10 +213,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		// printf("vm hanele fault page write!!\n");
 		return false;
 	}
-	// if(not_present) {
-	// 	printf("vm hanele fault page not present!!\n");
-	// 	return false;
-	// }
 	page->va = pg_round_down(addr);
 	// printf("vm hanele fault page done!!\n");
 	struct file_info *aux2 = (struct file_info *)page->uninit.aux;
