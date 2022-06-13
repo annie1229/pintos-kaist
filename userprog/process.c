@@ -721,7 +721,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	// printf("-----------------lazy load seg!!!!!!!!!!!!!!!\n");
+	// printf("-----------------lazy load seg!!!!!!!!!!!!!!!%d\n", aux);
 	// printf("va : %p, kva: %p\n", page->va, page->frame->kva);
 	struct file_info *f_info = (struct file_info *)aux;
 	
@@ -734,15 +734,15 @@ lazy_load_segment (struct page *page, void *aux) {
 	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", f_info->file, page->frame->kva);
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
-		// printf("lazy load file_read fail!!!!!!!!!!!\n");
-		free(aux);
+		// printf("lazy load file_read fail!!!!!!!!!!!result%d file read bytes %d\n", read_result, f_info->read_bytes);
+		// free(aux);
 		vm_dealloc_page(page);
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
 	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
 	page->is_loaded = true;
-	free(aux);
+	// free(aux);
 	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
 	return true;
 }
