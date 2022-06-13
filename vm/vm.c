@@ -48,9 +48,9 @@ static struct frame *vm_get_frame (void);
 bool
 vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		vm_initializer *init, void *aux) {
+
 	// printf("vm alloc page init!!!!!%d, %d\n", type, VM_TYPE(type));
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
-
 	struct supplemental_page_table *spt = &thread_current ()->spt;
 
 	/* Check wheter the upage is already occupied or not. */
@@ -61,22 +61,13 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
 		p->va = pg_round_down(upage);
 		
-		if (type & VM_MARKER_0) {
-			struct frame *f = (struct frame *)vm_get_frame();
-			uninit_new(p, pg_round_down(upage), init, type, aux, anon_initializer);
-			f->page = p;
-			p->frame = f;
-			p->writable = true;
-			p->is_loaded = true;
-			/* Add the page to the process's address space. */
-			pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
-			spt_insert_page(spt, p);
-			return true;
-		}
+		/* 부모의 페이지를 복사한 경우 */
 		if (type & VM_MARKER_1) {
 			struct page *parent_page = (struct page *)aux;
+			/* 보라 : 부모 페이지가 uninit 일 경우 lazyload에서 부모의 aux가 free 될 수 있음. calloc?memcpy? */
 			void *_aux = (parent_page->uninit).aux;
-			uninit_new(p, pg_round_down(upage), init, page_get_type(parent_page), _aux, anon_initializer);
+			uninit_new(p, pg_round_down(upage), init, type, _aux, anon_initializer);
+			
 			p->writable = parent_page->writable;
 			p->is_loaded = parent_page->is_loaded;
 			p->f = parent_page->f;
@@ -84,10 +75,11 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			p->read_bytes = parent_page->read_bytes;
 			p->zero_bytes = parent_page->zero_bytes;
 
-			struct frame *f = vm_get_frame();
-			f->page = p;
-			p->frame = f;
+	
 			if(parent_page->frame != NULL) {
+				struct frame *f = vm_get_frame();
+				f->page = p;
+				p->frame = f;
 				memcpy(f->kva, parent_page->frame->kva, PGSIZE);
 				pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
 			}
@@ -109,6 +101,13 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Insert the page into the spt. */
 		p->writable = writable;
 		spt_insert_page(spt, p);
+		/* stack 초기화 page인 경우 */
+		if (type & VM_MARKER_0) {
+			p->writable = true;
+			p->is_loaded = true;
+			vm_do_claim_page(p);
+			return true;
+		}
 
 		// printf("vm alloc page init done!!!!!\n");
 		return true;
@@ -206,21 +205,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
 	// printf("======call vm try handle fault=====\n");
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
-	/* TODO: Validate the fault */
 	struct page *page = spt_find_page(spt, addr);
-	// struct page *page = (struct page *)malloc(sizeof(struct page));
-
-	// if(page != NULL && page->is_loaded) {
-	// 	printf("vm hanele fault page trueeeeeee!!\n");
-	// 	return true;
-	// }
-
-	// if(page != NULL && not_present) {
-	// 	printf("vm hanele fault page trueeeeeee!!\n");
-	// 	page->va = pg_round_down(addr);
-	// 	return vm_do_claim_page (page);
-	// 	// return true;
-	// }
 	if (page == NULL) {
 		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
 		return false;
@@ -229,15 +214,8 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		// printf("vm hanele fault page write!!\n");
 		return false;
 	}
-	// if(not_present) {
-	// 	printf("vm hanele fault page not present!!\n");
-	// 	return false;
-	// }
 	page->va = pg_round_down(addr);
 	// printf("vm hanele fault page done!!\n");
-	struct file_info *aux2 = (struct file_info *)page->uninit.aux;
-
-	// printf("do claim pg read %d, zero %d\n", aux2->read_bytes, aux2->zero_bytes);
 	return vm_do_claim_page (page);
 }
 
@@ -266,15 +244,16 @@ vm_do_claim_page (struct page *page) {
 	struct supplemental_page_table *spt = &cur->spt;
 
 	/* Set links */
+
 	frame->page = page;
 	page->frame = frame;
 	// printf("vm do claim page %p writable %s!!\n", page->va, page->writable ? "true" : "false");
 	pml4_set_page(cur->pml4, page->va, frame->kva, page->writable);
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// printf("vm do claim page insert!!!!!!!%d\n", VM_TYPE(page->operations->type));
-	struct file_info *aux2 = (struct file_info *)(page->uninit.aux);
-
-	// printf("do claim pg read %d, zero %d\n", aux2->read_bytes, aux2->zero_bytes);
+	if(page_get_type(page) & VM_MARKER_0) {
+		return true;
+	}
 	return swap_in (page, frame->kva);
 }
 
@@ -284,20 +263,17 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	hash_init(&spt->hash_page_table, page_hash, page_less, NULL);
 }
 
+static void copy_elem(struct hash_elem *hash_elem, void* aux) {
+	struct page *p = hash_entry (hash_elem, struct page, hash_elem);
+	vm_alloc_page_with_initializer(page_get_type(p) | VM_MARKER_1, p->va, p->writable, NULL, p);
+}
+
 /* Copy supplemental page table from src to dst */
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
-	struct hash_iterator i;
-  
-  hash_first (&i, &src->hash_page_table);
-  while (hash_next (&i))
-  {
-  	// struct page *p = calloc(1, sizeof(struct page));
-		struct page *p = hash_entry (hash_cur (&i), struct page, hash_elem);
-		// memcpy(p, parent, sizeof(struct page));
-		vm_alloc_page_with_initializer(page_get_type(p) | VM_MARKER_1, p->va, p->writable, NULL, p);
-	}
+
+	hash_apply(&src->hash_page_table, copy_elem);
 	return true;
 }
 
@@ -311,7 +287,6 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	// hash_clear(&spt->hash_page_table, &delete_elem);
 	hash_destroy(&spt->hash_page_table, delete_elem);
 }
 
@@ -327,7 +302,6 @@ bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
   const struct page *a = hash_entry (a_, struct page, hash_elem);
   const struct page *b = hash_entry (b_, struct page, hash_elem);
 	// printf("hash>>>>>page_less %p &&&& %p\n", a->va, b->va);
-
   return a->va < b->va;
 }
 
@@ -335,16 +309,11 @@ bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
 struct page *
 page_lookup (const void *address) {
   struct page p;
-  // struct page *p;
   struct hash_elem *e;
   struct supplemental_page_table *spt = &thread_current()->spt;
   
   p.va = pg_round_down(address);
 	// printf("page lookup %p!!!!%p\n", address, p.va);
   e = hash_find (&spt->hash_page_table, &p.hash_elem);
-	
-  // (*p).va = pg_round_down(address);
-	// printf("page lookup %p!!!!%p\n", address, (*p).va);
-  // e = hash_find (&spt->hash_page_table, &p->hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
 }
