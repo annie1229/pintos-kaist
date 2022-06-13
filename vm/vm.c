@@ -81,12 +81,14 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			// printf("copy parent->frame->kva %p\n", parent_page->frame->kva);
 			// free(parent_page);
 			p->va = pg_round_down(upage);
-			// f->kva = parent_page->frame->kva;
-			memcpy(f->kva, parent_page->frame->kva, PGSIZE);
 			f->page = p;
 			p->frame = f;
+			// f->kva = parent_page->frame->kva;
+			if (parent_page->frame != NULL) {
+				memcpy(f->kva, parent_page->frame->kva, PGSIZE);
+				pml4_set_page(thread_current()->pml4, p->va, p->frame->kva, p->writable);
+			}
 			/* Add the page to the process's address space. */
-			pml4_set_page(thread_current()->pml4, p->va, p->frame->kva, p->writable);
 			spt_insert_page(spt, p);
 			return true;
 		}
@@ -295,6 +297,8 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	}
 	return true;
 }
+
+static hash_action_func delete_elem;
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);

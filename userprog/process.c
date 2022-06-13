@@ -217,19 +217,15 @@ process_exec (void *f_name) {
 	// vm_init();
 	
 	/* And then load the binary */
-	// printf("process exec 11111\n");
 
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-	// printf("process exec 22222\n");
 	success = load (file_name, &_if);
 	/* If load failed, quit. */
-	// printf("process exec 33333 %s\n", file_name);
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
-	// printf("process exec 44444\n");
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
