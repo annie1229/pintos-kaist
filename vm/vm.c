@@ -193,17 +193,11 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
-  // printf("stack growth!!!!!!\n");
-
   void *stack_bottom_ = (void *)(((uint8_t *)thread_current()->stack_bottom) - PGSIZE);
   if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom_, true)) {
 	thread_current()->stack_bottom = stack_bottom_;
   }
 
-//   if() {
-// 	thread_current()->stack_bottom = pg_round_down(addr);
-//   }
-  // printf("stack growth done!!!!!!%d\n", flag);
 }
 
 /* Handle the fault on write_protected page */
@@ -220,9 +214,6 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	struct page *page = spt_find_page(spt, addr);
 	struct thread *cur = thread_current();
-	/*user? kernel? */
-
-
 
 	if (page == NULL) {
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
