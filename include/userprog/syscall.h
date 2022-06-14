@@ -11,6 +11,7 @@ void syscall_init (void);
 
 // * 추가
 void check_address(void *addr);
+void check_valid_buffer(void *buffer, unsigned size, bool writable);
 
 // * syscall 추가
 void halt(void);

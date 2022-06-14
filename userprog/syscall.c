@@ -51,7 +51,7 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
-  
+  thread_current()->rsp = f->rsp;
   switch (f->R.rax) {
     case SYS_HALT:
       halt();
@@ -188,7 +188,7 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned size) {
-  check_valid_buffer(buffer, size);
+  check_valid_buffer(buffer, size, false);
   if (fd == 1) {
     return -1;
   }
@@ -210,7 +210,7 @@ int read (int fd, void *buffer, unsigned size) {
 }
 
 int write (int fd UNUSED, const void *buffer, unsigned size) {
-  check_valid_buffer(buffer, size);
+  check_valid_buffer(buffer, size, true);
 
   if (fd == 0) // STDIN일때 -1
     return -1;
@@ -264,12 +264,17 @@ void check_address(void *addr) {
 #endif
 }
 
-void check_valid_buffer(void *buffer, unsigned size) {
+void check_valid_buffer(void *buffer, unsigned size, bool writable) {
   check_address(buffer);
   struct thread *cur = thread_current();
 
-  for(int i=0; i<size; i+=PGSIZE) {
+  for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, buffer+i);
+    // if (p == NULL) 
+    //   exit(-1);
+    // if(writable && !p->writable) {
+    //   exit(-1);
+    // }
     if(!p->writable) {
       exit(-1);
     }
