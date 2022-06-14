@@ -800,6 +800,7 @@ setup_stack (struct intr_frame *if_) {
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {	
 		success = true;
 		if_->rsp = USER_STACK;
+		thread_current()->stack_bottom = USER_STACK;
 	};
 	// printf("===============setup stack done %d===============\n", success);
 	return success;
