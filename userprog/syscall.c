@@ -13,6 +13,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
+#include "vm/vm.h"
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -186,7 +188,7 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned size) {
-  check_address(buffer);
+  check_valid_buffer(buffer, size);
   if (fd == 1) {
     return -1;
   }
@@ -260,4 +262,16 @@ void check_address(void *addr) {
   if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
     exit(-1);
 #endif
+}
+
+void check_valid_buffer(void *buffer, unsigned size) {
+  check_address(buffer);
+  struct thread *cur = thread_current();
+
+  for(int i=0; i<size; i+=PGSIZE) {
+    struct page *p = spt_find_page(&cur->spt, buffer+i);
+    if(!p->writable) {
+      exit(-1);
+    }
+  }
 }

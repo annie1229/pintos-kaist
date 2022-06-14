@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "threads/vaddr.h"
 #include "lib/string.h"
+#define ONE_MB (1 << 20) // 1MB    
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -192,6 +193,7 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	return vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, true, NULL, NULL);
 }
 
 /* Handle the fault on write_protected page */
@@ -204,10 +206,20 @@ bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
 	// printf("======call vm try handle fault=====\n");
+
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	struct page *page = spt_find_page(spt, addr);
+	
+	/*user? kernel? */
 	if (page == NULL) {
 		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
+		if(addr == f->rsp -8) {
+			// if(USER_STACK - (uint64_t)addr <= ONE_MB){
+				vm_stack_growth(addr);
+				return true;
+			// }
+				
+		}
 		return false;
 	}
 	if(write && !page->writable) {
