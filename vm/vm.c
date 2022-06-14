@@ -194,7 +194,15 @@ vm_get_frame (void) {
 static void
 vm_stack_growth (void *addr UNUSED) {
   // printf("stack growth!!!!!!\n");
-	bool flag = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, true, NULL, NULL);
+
+  void *stack_bottom_ = (void *)(((uint8_t *)thread_current()->stack_bottom) - PGSIZE);
+  if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom_, true)) {
+	thread_current()->stack_bottom = stack_bottom_;
+  }
+
+//   if() {
+// 	thread_current()->stack_bottom = pg_round_down(addr);
+//   }
   // printf("stack growth done!!!!!!%d\n", flag);
 }
 
@@ -213,16 +221,13 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = spt_find_page(spt, addr);
 	struct thread *cur = thread_current();
 	/*user? kernel? */
+
+
+
 	if (page == NULL) {
-		printf("vm hanele fault page nulllllllll!! %p %p %p\n", pg_round_down(addr), f->rsp, cur->rsp);
-    uint8_t *stack_bottom = pg_round_down(f->rsp);
-		if(f->rsp - 8 == addr) {
-      printf("vm try handle fault stack 222222\n");
-			if(USER_STACK - (uint64_t)addr <= ONE_MB){
-        for (uint8_t i = pg_round_down(cur->rsp) - 8; pg_round_down(addr) < i; i -= PGSIZE) {
-          vm_stack_growth(i);
-        }
-        // vm_stack_growth(addr);
+		if(USER_STACK - (uint64_t)addr <= ONE_MB){
+			if(f->rsp -8 == addr) {
+				vm_stack_growth(addr);
 				return true;
 			}
 		}
