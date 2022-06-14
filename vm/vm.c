@@ -193,7 +193,9 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
-	return vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, true, NULL, NULL);
+  // printf("stack growth!!!!!!\n");
+	bool flag = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, true, NULL, NULL);
+  // printf("stack growth done!!!!!!%d\n", flag);
 }
 
 /* Handle the fault on write_protected page */
@@ -212,13 +214,14 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	
 	/*user? kernel? */
 	if (page == NULL) {
-		// printf("vm hanele fault page nulllllllll!! %p\n", addr);
-		if(addr == f->rsp -8) {
-			// if(USER_STACK - (uint64_t)addr <= ONE_MB){
-				vm_stack_growth(addr);
+		// printf("vm hanele fault page nulllllllll!! %p %p\n", addr, f->rsp);
+    uint8_t *stack_bottom = pg_round_down(f->rsp);
+		if(f->rsp - PGSIZE < addr) {
+      // printf("vm try handle fault stack 222222\n");
+			if(USER_STACK - (uint64_t)addr <= ONE_MB){
+        vm_stack_growth(addr);
 				return true;
-			// }
-				
+			}
 		}
 		return false;
 	}
