@@ -158,14 +158,15 @@ do_munmap (void *addr) {
 	}
 
 	struct mmap_file *found_mf = hash_entry (e, struct mmap_file, elem);
-
 	while (!list_empty (&found_mf->vme_list)) {
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
 		delete_frame(p);
 		vm_dealloc_page(p);
 	}
-	free(found_mf);	
+	/*파일삭제?! */ 
+	free(found_mf);
+	return true;
 }
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
