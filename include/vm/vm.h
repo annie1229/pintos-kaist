@@ -80,7 +80,6 @@ struct file_info {
 	bool writable; /* True일 경우 해당 주소에 write 가능 	False일 경우 해당 주소에 write 불가능 */
 	bool is_loaded; /* 물리메모리의 탑재 여부를 알려주는 플래그 */
 	struct file* file; /* 가상주소와 맵핑된 파일 */
-	/* Memory Mapped File 에서 다룰 예정 */
 	size_t offset; /* 읽어야 할 파일 오프셋 */
 	size_t read_bytes; /* 가상페이지에 쓰여져 있는 데이터 크기 */
 	size_t zero_bytes; 
@@ -91,6 +90,14 @@ struct frame {
 	void *kva;
 	struct page *page;
 	struct list_elem *frame_elem;
+};
+
+struct mmap_file {
+	int mappid;
+	void *va;  
+	struct file* file;
+	struct hash_elem elem;
+	struct list vme_list;
 };
 
 /* The function table for page operations.
@@ -138,10 +145,13 @@ void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
 
+void delete_frame(struct page *p);
+
 unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
 struct page *page_lookup (const void *address);
 static hash_action_func delete_elem;
 static hash_action_func copy_elem;
+
 
 #endif  /* VM_VM_H */

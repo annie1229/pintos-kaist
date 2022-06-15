@@ -15,7 +15,10 @@
 #include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
-
+#endif
+#ifdef VM
+#include "kernel/hash.h"
+#include "vm/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -576,9 +579,8 @@ init_thread (struct thread *t, const char *name, int priority, int wakeup_tick) 
 	t->wakeup_tick = wakeup_tick;
 	t->magic = THREAD_MAGIC;
 
-  // * USERPROG 추가
-  list_init(&t->children);
-
+	// * USERPROG 추가
+	list_init(&t->children);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

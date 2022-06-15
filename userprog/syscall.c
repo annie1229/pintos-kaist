@@ -14,6 +14,7 @@
 #include "filesys/file.h"
 
 #include "vm/vm.h"
+#include "threads/vaddr.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -269,13 +270,24 @@ void check_valid_buffer(void *buffer, unsigned size, bool writable) {
 
   for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, buffer+i);
-    // if (p == NULL) 
-    //   exit(-1);
-    // if(writable && !p->writable) {
-    //   exit(-1);
-    // }
     if(!p->writable) {
       exit(-1);
     }
   }
+}
+
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
+  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| (pg_ofs (addr) == 0)) {
+    return NULL;
+  }
+  struct file *f = thread_current()->fdt[fd];
+  struct file *open_file = file_reopen(f);
+  do_mmap(addr, length, writable, open_file, offset);
+  return addr;
+}
+
+void munmap (void *addr) {
+  if(!do_munmap(addr)) {
+    exit(-1);
+  };
 }

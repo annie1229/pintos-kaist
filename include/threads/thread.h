@@ -13,6 +13,8 @@
 // * USERPROG 추가
 #include "include/threads/synch.h"
 
+#include "kernel/hash.h"
+
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -127,10 +129,11 @@ struct thread {
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
 	uintptr_t stack_bottom;
+	struct hash mmap_hash;
 #endif
 
 	/* Owned by thread.c. */
-  struct intr_frame ptf;
+  	struct intr_frame ptf;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };

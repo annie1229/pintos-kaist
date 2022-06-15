@@ -69,6 +69,7 @@ static void
 initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
+	mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
 	process_init ();
 
@@ -705,6 +706,7 @@ install_page (void *upage, void *kpage, bool writable) {
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
+
 
 static bool
 lazy_load_segment (struct page *page, void *aux) {
