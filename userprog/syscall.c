@@ -233,6 +233,10 @@ int write (int fd UNUSED, const void *buffer, unsigned size) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, buffer, size);
     lock_release(&filesys_lock);
+    if(write_byte != 0) {
+      /* pml4_set_dirty (uint64_t *pml4, const void *vpage, bool dirty) {*/
+      pml4_set_dirty(thread_current()->pml4, buffer, true);
+    }
     return write_byte;
   }
 }
@@ -298,10 +302,9 @@ void check_valid_string(const void *str, unsigned size) {
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
   // printf("syscall mmap!!!!!\n");
-  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0) {
-    // printf("syscall mmap fail!!!!!\n");
+  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset) {
     return NULL;
-  }
+}
   struct file *f = thread_current()->fdt[fd];
   struct file *open_file = file_reopen(f);
   // printf("syscall mmap done!!!!!\n");

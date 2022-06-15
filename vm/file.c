@@ -1,6 +1,7 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "vm/vm.h"
+#include "threads/mmu.h"
 #define PGBITS  12                         /* Number of offset bits. */
 #define PGSIZE  (1 << PGBITS)              /* Bytes in a page. */
 
@@ -175,6 +176,9 @@ do_munmap (void *addr) {
 	while (!list_empty (&found_mf->vme_list)) {
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
+		if(pml4_is_dirty (thread_current()->pml4, p->va)) {
+			file_write_at(p->f, p->va, p->read_bytes, p->offset);
+		}
 		delete_frame(p);
 		hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
 		vm_dealloc_page(p);
