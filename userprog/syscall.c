@@ -15,6 +15,7 @@
 
 #include "vm/vm.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -174,7 +175,7 @@ int open (const char *file) {
   struct thread *cur = thread_current();
   struct file *fd = filesys_open(file);
   if (fd) {
-    for (int i = 2; i < 128; i++) {
+    for (int i = 2; i < FD_MAX; i++) {
       if (!cur->fdt[i]) {
         cur->fdt[i] = fd;
         cur->next_fd = i + 1;

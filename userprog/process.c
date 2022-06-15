@@ -22,6 +22,8 @@
 
 #ifdef VM
 #include "vm/vm.h"
+#include "vm/file.h"
+#include "hash.h"
 #endif
 
 static void process_cleanup (void);
@@ -161,6 +163,9 @@ __do_fork (void *aux) {
 	supplemental_page_table_init (&current->spt);
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
+	mmap_hash_init(&current->mmap_hash);
+	if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
+		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
@@ -172,7 +177,7 @@ __do_fork (void *aux) {
 	 * TODO:       the resources of parent.*/
  	int cnt = 2;
 	struct file **table = parent->fdt;
-	while (cnt < 128) {
+	while (cnt < FD_MAX) {
 		if (table[cnt]) {
 			current->fdt[cnt] = file_duplicate(table[cnt]);
 		} else {
@@ -258,30 +263,36 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
   	struct file **table = curr->fdt;
+	printf("process exit>?????dfsf??\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
   
+	mmap_hash_kill(&curr->mmap_hash);
 	if (curr->run_file)
 		file_close(curr->run_file);
 
+	printf("process exit>222222?\n");
 	int cnt = 2;
-	while (cnt < 128) {
+	while (cnt < FD_MAX) {
 		if (table[cnt]) { // != 0 && table[cnt] != NULL
 			file_close(table[cnt]);
 			table[cnt] = NULL;
 		}
 		cnt++;
 	}
-	struct list_elem *e;
-	struct thread *ch;
 
+	printf("process exit>2233333332222?\n");
 	sema_up(&curr->load_sema);
 	sema_down(&curr->exit_sema);
 
+	printf("process exit>44444444?\n");
+	printf("process exit>55555?\n");
 	palloc_free_page(table);
+	printf("process exit>6666?\n");
 	process_cleanup ();
+	printf("process exit>7777?\n");
 }
 
 /* Free the current process's resources. */

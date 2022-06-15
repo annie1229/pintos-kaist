@@ -297,9 +297,9 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		pml4_clear_page(thread_current()->pml4, p->va);
-	 	palloc_free_page(p->frame->kva);
-		free(p->frame);
+		// pml4_clear_page(thread_current()->pml4, p->va);
+	 	// palloc_free_page(p->frame->kva);
+		// free(p->frame);
 	}
 }
 
