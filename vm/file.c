@@ -94,6 +94,7 @@ do_mmap (void *addr, size_t length, int writable,
 		addr += PGSIZE;
 	}
 	
+	// printf("hash insert start!!!!!! addr %p\n\n", addr);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
 		// printf("hash insert fail!!!!!! addr %p\n\n", addr);
 		// return mmap_f->va;

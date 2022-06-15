@@ -301,8 +301,10 @@ void check_valid_string(const void *str, unsigned size) {
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-  // printf("syscall mmap!!!!!\n");
-  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset) {
+  // printf("syscall mmap!!!!! %d \n", KERN_BASE - USER_STACK < length);
+  // printf("mmap sfsfsdfs!!!!! addr %p = %d, length %u = %d, iskernel %d\n", addr, addr <= 0, length, length <= 0, is_kernel_vaddr(addr));
+  if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr)) {
+    // printf("mmap fail!!!!! addr %p length %u %x iskernel %d\n", addr, length, length, is_kernel_vaddr(addr));
     return NULL;
 }
   struct file *f = thread_current()->fdt[fd];
