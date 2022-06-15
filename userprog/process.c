@@ -22,6 +22,7 @@
 
 #ifdef VM
 #include "vm/vm.h"
+#include "vm/file.h"
 #endif
 
 static void process_cleanup (void);
@@ -161,6 +162,9 @@ __do_fork (void *aux) {
 	supplemental_page_table_init (&current->spt);
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
+	mmap_hash_init(&current->mmap_hash);
+	if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
+		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
@@ -274,6 +278,8 @@ process_exit (void) {
 		}
 		cnt++;
 	}
+	mmap_hash_kill(&thread_current()->mmap_hash);
+
 	struct list_elem *e;
 	struct thread *ch;
 

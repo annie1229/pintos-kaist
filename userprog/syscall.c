@@ -15,6 +15,7 @@
 
 #include "vm/vm.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -229,10 +230,15 @@ int write (int fd UNUSED, const void *buffer, unsigned size) {
   }
 
   struct file *file = thread_current()->fdt[fd];
+  if(file==NULL) {
+  }
   if (file) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, buffer, size);
     lock_release(&filesys_lock);
+    if(write_byte != 0) {
+      pml4_set_dirty(thread_current()->pml4, buffer, true);
+    }
     return write_byte;
   }
 }
@@ -262,8 +268,10 @@ void close (int fd) {
 void check_address(void *addr) {
   struct thread *cur = thread_current();
 #ifdef VM
-  if (addr == NULL || is_kernel_vaddr(addr) || spt_find_page(&cur->spt, addr) == NULL)
+  if (addr == NULL || is_kernel_vaddr(addr) || spt_find_page(&cur->spt, addr) == NULL) {
+    // print("check_address fail!!!");
     exit(-1);
+  }
 #else
   if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
     exit(-1);
@@ -277,7 +285,7 @@ void check_valid_buffer(void *buffer, unsigned size, bool writable) {
   for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, buffer + i);
     if(!p->writable) {
-      // printf("check valid buffer writable %d, p->writable %d\n", writable, p->writable);
+      // printf("check valid buffer writable %d, p->writable\n",p->writable);
       exit(-1);
     }
   }
@@ -290,7 +298,7 @@ void check_valid_string(const void *str, unsigned size) {
   for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, str + i);
     if(p == NULL) {
-      // printf("check valid buffer writable %d, p->writable %d\n", writable, p->writable);
+      // printf("check valid buffer writable %d, p->writable\n", p->writable);
       exit(-1);
     }
   }
@@ -298,13 +306,11 @@ void check_valid_string(const void *str, unsigned size) {
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
   // printf("syscall mmap!!!!!\n");
-  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0) {
-    // printf("syscall mmap fail!!!!!\n");
+  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset) {
     return NULL;
-  }
+}
   struct file *f = thread_current()->fdt[fd];
   struct file *open_file = file_reopen(f);
-  // printf("syscall mmap done!!!!!\n");
   return do_mmap(addr, length, writable, open_file, offset);
 }
 

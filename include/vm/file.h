@@ -7,6 +7,7 @@ struct page;
 enum vm_type;
 
 struct file_page {
+	
 };
 
 void vm_file_init (void);
@@ -17,4 +18,6 @@ bool do_munmap (void *va);
 void mmap_hash_init (struct hash *m_hash);
 bool mmap_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
 unsigned mmap_hash (const struct hash_elem *mf_, void *aux);
+bool mmap_hash_table_copy (struct hash *dst, struct hash *src);
+void mmap_hash_kill (struct hash *hash);
 #endif

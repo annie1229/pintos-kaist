@@ -1,6 +1,7 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "vm/vm.h"
+#include "threads/mmu.h"
 #define PGBITS  12                         /* Number of offset bits. */
 #define PGSIZE  (1 << PGBITS)              /* Bytes in a page. */
 
@@ -93,6 +94,8 @@ do_mmap (void *addr, size_t length, int writable,
 		addr += PGSIZE;
 	}
 	
+	// printf("to_insert_va %p\n", mf->va);
+	// printf("to_insert_va %p\n", cur->mmap_hash);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
 		// printf("hash insert fail!!!!!! addr %p\n\n", addr);
 		// return mmap_f->va;
@@ -122,6 +125,19 @@ unsigned
 mmap_hash (const struct hash_elem *mf_, void *aux UNUSED) {
   const struct mmap_file *mf = hash_entry (mf_, struct mmap_file, elem);
   return hash_bytes (&mf->va, sizeof mf->va);
+}
+
+void copy_elem(struct hash_elem *hash_elem, void* aux) {
+	struct page *parent_p = hash_entry (hash_elem, struct page, hash_elem);
+	struct page *child_p = spt_find_page(&thread_current()->spt, parent_p->va);
+	hash_insert(&thread_current()->mmap_hash, &child_p->mmap_elem);
+}
+
+/* Copy supplemental page table from src to dst */
+bool
+mmap_hash_table_copy (struct hash *dst UNUSED, struct hash *src UNUSED) {
+	hash_apply(src, copy_elem);
+	return true;
 }
 
 static bool
@@ -173,8 +189,13 @@ do_munmap (void *addr) {
 	
 	struct mmap_file *found_mf = hash_entry (e, struct mmap_file, elem);
 	while (!list_empty (&found_mf->vme_list)) {
+		// puts("circle!!!!!!!!!!!!!!");
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
+		if(pml4_is_dirty (thread_current()->pml4, p->va)) {
+			// puts("dirrrrrrrrrrrrrrrrrrrty");
+			file_write_at(p->f, p->va, p->read_bytes, p->offset);
+		}
 		delete_frame(p);
 		hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
 		vm_dealloc_page(p);
@@ -191,3 +212,17 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	vm_dealloc_page(p);
 	/*file_close*/
 }
+
+static void 
+delete_mmap (struct hash_elem *elem, void *aux) {
+	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
+	do_munmap(found_mf->va);
+}
+
+void
+mmap_hash_kill (struct hash *hash) {
+	/* TODO: Destroy all the supplemental_page_table hold by thread and
+	 * TODO: writeback all the modified contents to the storage. */
+	hash_destroy(hash, delete_mmap);
+}
+
