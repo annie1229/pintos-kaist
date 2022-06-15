@@ -51,18 +51,23 @@ file_backed_destroy (struct page *page) {
 void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
-
+	// printf("do_mmap start==============\n");
 	struct thread *cur = thread_current();
-  	struct mmap_file *mf = calloc(1, sizeof(struct mmap_file));
+  struct mmap_file *mf = calloc(1, sizeof(struct mmap_file));
 	list_init(&mf->vme_list);
 	mf->file = file;
+	mf->va = addr;
 
-	while (length > 0) {
+	size_t read_bytes = file_length(file);
+	size_t zero_bytes = length - read_bytes;
+
+	while (0 < read_bytes) {
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
 		 * and zero the final PAGE_ZERO_BYTES bytes. */
-		size_t page_read_bytes = length < PGSIZE ? length : PGSIZE;
+		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
+		// printf("do_mmap while length %d, read_bytes %d, offset %d\n", length, page_read_bytes, offset);
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 		struct file_info *aux = calloc(1, sizeof(struct file_info));
@@ -72,22 +77,29 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
 		aux->is_loaded = false;
-		// printf("load segment >>>>> upage %p read %d zero %d writable %s\n", upage, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
-		if (!vm_alloc_page_with_initializer (VM_FILE, addr,
-					writable, lazy_load_segment, aux))
-			return false;
+		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
+		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_segment, aux)) {
+			// printf("do mmap vm alloc page fail!!!\n");
+			return NULL;
+		}
 		
 		struct page *p = spt_find_page(&cur->spt, addr);
 		list_push_back(&mf->vme_list, &p->mmap_elem);
 
 		/* Advance. */
-		length -= page_read_bytes;
+		read_bytes -= page_read_bytes;
+		zero_bytes -= page_zero_bytes;
 		offset += page_read_bytes;
 		addr += PGSIZE;
 	}
-
-	hash_insert(&cur->mmap_hash, &mf->elem);
-	return true;
+	
+	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
+		// printf("hash insert fail!!!!!! addr %p\n\n", addr);
+		// return mmap_f->va;
+		return NULL;
+	}
+	// printf("do_mmap done==============\n");
+	return mf->va;
 }
 
 
@@ -117,7 +129,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	// printf("-----------------lazy load seg!!!!!!!!!!!!!!!\n");
+	// printf("-----------------lazy load seg mmap!!!!!!!!!!!!!!!\n");
 	// printf("va : %p, kva: %p\n", page->va, page->frame->kva);
 	struct file_info *f_info = (struct file_info *)aux;
 	
@@ -130,7 +142,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", f_info->file, page->frame->kva);
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
-		// printf("lazy load file_read fail!!!!!!!!!!!\n");
+		// printf("lazy load file_read mmap fail!!!!!!!!!!!\n");
 		free(aux);
 		vm_dealloc_page(page);
 		return false;
@@ -139,7 +151,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
 	page->is_loaded = true;
 	free(aux);
-	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
+	// printf("-----------------lazy load seg mmap done!!!!!!!!!!!!!!!\n");
 	return true;
 }
 
@@ -147,6 +159,7 @@ lazy_load_segment (struct page *page, void *aux) {
 /* Do the munmap */
 bool
 do_munmap (void *addr) {
+	// printf("do_munmap start==============\n");
 	struct thread *cur = thread_current();
 	struct mmap_file mf;
 	mf.va = addr;
@@ -154,18 +167,21 @@ do_munmap (void *addr) {
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
 	if(e == NULL) {
+		// printf("do_munmap fail\n");
 		return false;
 	}
-
+	
 	struct mmap_file *found_mf = hash_entry (e, struct mmap_file, elem);
 	while (!list_empty (&found_mf->vme_list)) {
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
 		delete_frame(p);
+		hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
 		vm_dealloc_page(p);
 	}
 	/*파일삭제?! */ 
 	free(found_mf);
+	// printf("do_munmap done==============\n");
 	return true;
 }
 
@@ -174,5 +190,4 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	delete_frame(p);
 	vm_dealloc_page(p);
 	/*file_close*/
-
 }

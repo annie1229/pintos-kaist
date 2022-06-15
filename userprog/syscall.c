@@ -194,7 +194,7 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned size) {
-  check_valid_buffer(buffer, size, false);
+  check_valid_buffer(buffer, size, true);
   if (fd == 1) {
     return -1;
   }
@@ -216,7 +216,7 @@ int read (int fd, void *buffer, unsigned size) {
 }
 
 int write (int fd UNUSED, const void *buffer, unsigned size) {
-  check_valid_buffer(buffer, size, true);
+  check_valid_string(buffer, size);
 
   if (fd == 0) // STDIN일때 -1
     return -1;
@@ -275,25 +275,44 @@ void check_valid_buffer(void *buffer, unsigned size, bool writable) {
   struct thread *cur = thread_current();
 
   for(int i=0; i < size; i += PGSIZE) {
-    struct page *p = spt_find_page(&cur->spt, buffer+i);
+    struct page *p = spt_find_page(&cur->spt, buffer + i);
     if(!p->writable) {
+      // printf("check valid buffer writable %d, p->writable %d\n", writable, p->writable);
+      exit(-1);
+    }
+  }
+}
+
+void check_valid_string(const void *str, unsigned size) {
+  check_address(str);
+  struct thread *cur = thread_current();
+
+  for(int i=0; i < size; i += PGSIZE) {
+    struct page *p = spt_find_page(&cur->spt, str + i);
+    if(p == NULL) {
+      // printf("check valid buffer writable %d, p->writable %d\n", writable, p->writable);
       exit(-1);
     }
   }
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| (pg_ofs (addr) == 0)) {
+  // printf("syscall mmap!!!!!\n");
+  if(addr == 0 || length == 0 || fd == 0 || fd == 1|| pg_ofs (addr) != 0) {
+    // printf("syscall mmap fail!!!!!\n");
     return NULL;
   }
   struct file *f = thread_current()->fdt[fd];
   struct file *open_file = file_reopen(f);
-  do_mmap(addr, length, writable, open_file, offset);
-  return addr;
+  // printf("syscall mmap done!!!!!\n");
+  return do_mmap(addr, length, writable, open_file, offset);
 }
 
 void munmap (void *addr) {
+  // printf("syscall munmap!!!!!\n");
   if(!do_munmap(addr)) {
+    // printf("syscall munmap fail!!!!!\n");
     exit(-1);
   };
+  // printf("syscall munmap done!!!!!\n");
 }

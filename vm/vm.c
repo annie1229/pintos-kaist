@@ -110,7 +110,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			return true;
 		}
 
-		// printf("vm alloc page init done!!!!!\n");
+		// printf("vm alloc page init done %d!!!!!\n", page_get_type(p));
 		return true;
 	} else {
 		// printf("vm initialize spt table is not null!!!!!!!!!!!\n");
@@ -259,10 +259,10 @@ vm_do_claim_page (struct page *page) {
 
 	frame->page = page;
 	page->frame = frame;
-	// printf("vm do claim page %p writable %s!!\n", page->va, page->writable ? "true" : "false");
+	// printf("vm do claim page %p writable %s kva %p!!\n", page->va, page->writable ? "true" : "false", frame->kva);
 	pml4_set_page(cur->pml4, page->va, frame->kva, page->writable);
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	// printf("vm do claim page insert!!!!!!!%d\n", VM_TYPE(page->operations->type));
+	// printf("vm do claim page insert!!!!!!!%d va %p\n", page_get_type(page), page->va);
 	if(page_get_type(page) & VM_MARKER_0) {
 		return true;
 	}

@@ -45,15 +45,11 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 /* Initalize the page on first fault */
 static bool
 uninit_initialize (struct page *page, void *kva) {
-	// printf("swap!!!!!uninit_initialize\n");
 	struct uninit_page *uninit = &page->uninit;
 
 	/* Fetch first, page_initialize may overwrite the values */
 	vm_initializer *init = uninit->init;
 	void *aux = uninit->aux;
-	struct file_info *aux2 = (struct file_info *)uninit->aux;
-
-	// printf("swap!!!!!uninit_initialize type: %d init %d read %d, zero %d\n", uninit->type, init, aux2->read_bytes, aux2->zero_bytes);
 	/* TODO: You may need to fix this function. */
 	return uninit->page_initializer (page, uninit->type, kva) && // anon_initializer
 		(init ? init (page, aux) : true); // lazy_load
