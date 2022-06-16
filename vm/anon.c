@@ -55,27 +55,31 @@ anon_swap_in (struct page *page, void *kva) {
 		disk_read(swap_disk, i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	bitmap_set_multiple(&swap_table->used, idx, 8, 0);
+	bitmap_set_multiple(swap_table->used, idx, 8, false);
 	return true;
 }
 
 /* Swap out the page by writing contents to the swap disk. */
 static bool
 anon_swap_out (struct page *page) {
+	printf("anon swap out!!! page->va %p\n", page->va);
 	struct anon_page *anon_page = &page->anon;
-	size_t idx = bitmap_scan_and_flip(&swap_table->used, 0, 8, 1);
+	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 8, false);
 
 	if (idx == BITMAP_ERROR) {
 		return false;
 	}
 	anon_page->swap_slot = idx;
 
+	printf("anon swap slot!!! idx %u\n", idx);
 	void *addr = page->va;
 	for(int i = idx; i < idx + 8; i++) {
 		disk_write(swap_disk, i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
 	del_frame_from_frame_table(page->frame);
+	page->frame = NULL;
+	printf("anon swap del_frame_from_frame_table!!!\n");
 	// delete_frame(page);
 	return true;
 }
