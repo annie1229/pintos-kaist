@@ -2,13 +2,14 @@
 
 #include "vm/vm.h"
 #include "threads/mmu.h"
+#include "userprog/syscall.h"
 #define PGBITS  12                         /* Number of offset bits. */
 #define PGSIZE  (1 << PGBITS)              /* Bytes in a page. */
 
 static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
-static bool lazy_load_segment (struct page *page, void *aux);
+static bool lazy_load_mmap_file (struct page *page, void *aux);
 /* DO NOT MODIFY this struct */
 static const struct page_operations file_ops = {
 	.swap_in = file_backed_swap_in,
@@ -70,7 +71,7 @@ do_mmap (void *addr, size_t length, int writable,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 		// printf("do_mmap while length %d, read_bytes %d, offset %d\n", length, page_read_bytes, offset);
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
+		/* TODO: Set up aux to pass information to the lazy_load_mmap_file. */
 		struct file_info *aux = calloc(1, sizeof(struct file_info));
 		aux->file = file;
 		aux->offset = offset;
@@ -79,7 +80,7 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->writable = writable;
 		aux->is_loaded = false;
 		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
-		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_segment, aux)) {
+		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_mmap_file, aux)) {
 			// printf("do mmap vm alloc page fail!!!\n");
 			return NULL;
 		}
@@ -97,7 +98,6 @@ do_mmap (void *addr, size_t length, int writable,
 	// printf("hash insert start!!!!!! addr %p\n\n", mf->va);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
 		// printf("hash insert fail!!!!!! addr %p\n\n", mf->va);
-		// return mmap_f->va;
 		return NULL;
 	}
 	// printf("do_mmap done==============\n");
@@ -105,9 +105,7 @@ do_mmap (void *addr, size_t length, int writable,
 }
 
 
-void
-mmap_hash_init (struct hash *m_hash UNUSED) {
-	// printf(">>>>>>>>>>>>>>>>>>>>.mmap hash init!!!\n");
+void mmap_hash_init (struct hash *m_hash UNUSED) {
 	hash_init(m_hash, mmap_hash, mmap_less, NULL);
 }
 
@@ -121,15 +119,12 @@ bool mmap_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
 }
 
 /* Returns a hash value for page p. */
-unsigned
-mmap_hash (const struct hash_elem *mf_, void *aux UNUSED) {
+unsigned mmap_hash (const struct hash_elem *mf_, void *aux UNUSED) {
   const struct mmap_file *mf = hash_entry (mf_, struct mmap_file, elem);
   return hash_bytes (&mf->va, sizeof mf->va);
 }
 
 void copy_elem(struct hash_elem *hash_elem_, void* aux) {
-	// struct page *parent_p = hash_entry (hash_elem, struct page, hash_elem);
-	// struct page *child_p = spt_find_page(&thread_current()->spt, parent_p->va);
 	struct thread *cur = thread_current();
 	struct mmap_file *parent_mf = hash_entry (hash_elem_, struct mmap_file, elem);
 	struct mmap_file *child_mf = calloc(1, sizeof(struct mmap_file));
@@ -147,22 +142,18 @@ void copy_elem(struct hash_elem *hash_elem_, void* aux) {
 	}
 	if (hash_insert(&thread_current()->mmap_hash, &child_mf->elem) == NULL) {
 		// printf("copy_elem fail!!!!!\n");
-	} else {
-		// printf("copy elem succ!!!!!\n");
 	}
 }
 
 /* Copy supplemental page table from src to dst */
 bool
 mmap_hash_table_copy (struct hash *dst UNUSED, struct hash *src UNUSED) {
-	// printf("mmap hash table copy!!!start\n");
 	hash_apply(src, copy_elem);
-	// printf("mmap hash table copy!!!done\n");
 	return true;
 }
 
 static bool
-lazy_load_segment (struct page *page, void *aux) {
+lazy_load_mmap_file (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
@@ -175,7 +166,6 @@ lazy_load_segment (struct page *page, void *aux) {
 	page->read_bytes = f_info->read_bytes;
 	page->zero_bytes = f_info->zero_bytes;
 	page->writable = f_info->writable;
-	page->is_loaded = f_info->is_loaded;
 	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", f_info->file, page->frame->kva);
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
@@ -221,45 +211,32 @@ do_munmap (void *addr) {
 				// printf("file write aTTTTTTTTTT\n");
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
-			// delete_frame(p);
-			// hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
-			// vm_dealloc_page(p);
-		}
-		/*파일삭제?! */ 
-		// free(found_mf);	
+		}	
 	}
 	// printf("do_munmap done==============\n");
 	return true;
-	
 }
 
-static void delete_elem(struct hash_elem *hash_elem, void* aux) {
-	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
-	delete_frame(p);
-	vm_dealloc_page(p);
-	/*file_close*/
-}
-
-static void delete_mmap (struct hash_elem *elem, void *aux) {
+static void delete_mapping(struct hash_elem *elem, void *aux) {
 	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
-	// printf("delete mmappppppp!!\n");
-	if(found_mf != NULL)
-		if(found_mf->va == 0 || pg_ofs (found_mf->va) != 0 || is_kernel_vaddr(found_mf->va)) {
-    	// printf("delete mmao!!!!!\n");
-		} else {
-			if (is_user_vaddr(found_mf->va))
-				do_munmap(found_mf->va);
-		}
+	if(found_mf != NULL) {
+		munmap(found_mf->va);	
+	}
+}
+
+static void delete_mmap_file (struct hash_elem *elem, void *aux) {
+	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
+	if(found_mf != NULL) {
+		free(found_mf);	
+	}
 }
 
 void mmap_hash_kill (struct hash *hash) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	// printf("mmap hash killlllllll!!!\n");
 	if (!hash_empty(hash)) {
-		// printf("mmap hash killlllllllnot empty\n\n");
-		hash_apply(hash, delete_mmap);
-		hash_destroy(hash, NULL);
+		hash_apply(hash, delete_mapping);
+		hash_destroy(hash, delete_mmap_file);
 	}
 }
 

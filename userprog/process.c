@@ -164,8 +164,6 @@ __do_fork (void *aux) {
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
 	mmap_hash_init(&current->mmap_hash);
-	// if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
-	// 	goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
