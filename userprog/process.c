@@ -23,6 +23,7 @@
 #ifdef VM
 #include "vm/vm.h"
 #include "vm/file.h"
+#include "hash.h"
 #endif
 
 static void process_cleanup (void);
@@ -176,7 +177,7 @@ __do_fork (void *aux) {
 	 * TODO:       the resources of parent.*/
  	int cnt = 2;
 	struct file **table = parent->fdt;
-	while (cnt < 128) {
+	while (cnt < FD_MAX) {
 		if (table[cnt]) {
 			current->fdt[cnt] = file_duplicate(table[cnt]);
 		} else {
@@ -267,21 +268,18 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
   
+	mmap_hash_kill(&curr->mmap_hash);
 	if (curr->run_file)
 		file_close(curr->run_file);
 
 	int cnt = 2;
-	while (cnt < 128) {
+	while (cnt < FD_MAX) {
 		if (table[cnt]) { // != 0 && table[cnt] != NULL
 			file_close(table[cnt]);
 			table[cnt] = NULL;
 		}
 		cnt++;
 	}
-	mmap_hash_kill(&thread_current()->mmap_hash);
-
-	struct list_elem *e;
-	struct thread *ch;
 
 	sema_up(&curr->load_sema);
 	sema_down(&curr->exit_sema);

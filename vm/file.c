@@ -94,10 +94,9 @@ do_mmap (void *addr, size_t length, int writable,
 		addr += PGSIZE;
 	}
 	
-	// printf("to_insert_va %p\n", mf->va);
-	// printf("to_insert_va %p\n", cur->mmap_hash);
+	// printf("hash insert start!!!!!! addr %p\n\n", mf->va);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
-		// printf("hash insert fail!!!!!! addr %p\n\n", addr);
+		// printf("hash insert fail!!!!!! addr %p\n\n", mf->va);
 		// return mmap_f->va;
 		return NULL;
 	}
@@ -108,6 +107,7 @@ do_mmap (void *addr, size_t length, int writable,
 
 void
 mmap_hash_init (struct hash *m_hash UNUSED) {
+	// printf(">>>>>>>>>>>>>>>>>>>>.mmap hash init!!!\n");
 	hash_init(m_hash, mmap_hash, mmap_less, NULL);
 }
 
@@ -127,16 +127,37 @@ mmap_hash (const struct hash_elem *mf_, void *aux UNUSED) {
   return hash_bytes (&mf->va, sizeof mf->va);
 }
 
-void copy_elem(struct hash_elem *hash_elem, void* aux) {
-	struct page *parent_p = hash_entry (hash_elem, struct page, hash_elem);
-	struct page *child_p = spt_find_page(&thread_current()->spt, parent_p->va);
-	hash_insert(&thread_current()->mmap_hash, &child_p->mmap_elem);
+void copy_elem(struct hash_elem *hash_elem_, void* aux) {
+	// struct page *parent_p = hash_entry (hash_elem, struct page, hash_elem);
+	// struct page *child_p = spt_find_page(&thread_current()->spt, parent_p->va);
+	struct thread *cur = thread_current();
+	struct mmap_file *parent_mf = hash_entry (hash_elem_, struct mmap_file, elem);
+	struct mmap_file *child_mf = calloc(1, sizeof(struct mmap_file));
+	child_mf->va = parent_mf->va;
+	list_init(&child_mf->vme_list);
+	if (parent_mf != NULL) {
+		struct list_elem *cur_p = list_begin(&parent_mf->vme_list);
+
+		while (cur_p != list_end(&parent_mf->vme_list)) {
+			struct page *parent_page = list_entry(cur_p, struct page, mmap_elem);
+			struct page *child_page = spt_find_page(&cur->spt, parent_page->va);
+			list_push_back(&child_mf->vme_list, &child_page->mmap_elem);
+			cur_p = list_next(cur_p);
+		}
+	}
+	if (hash_insert(&thread_current()->mmap_hash, &child_mf->elem) == NULL) {
+		// printf("copy_elem fail!!!!!\n");
+	} else {
+		// printf("copy elem succ!!!!!\n");
+	}
 }
 
 /* Copy supplemental page table from src to dst */
 bool
 mmap_hash_table_copy (struct hash *dst UNUSED, struct hash *src UNUSED) {
+	// printf("mmap hash table copy!!!start\n");
 	hash_apply(src, copy_elem);
+	// printf("mmap hash table copy!!!done\n");
 	return true;
 }
 
@@ -178,7 +199,8 @@ do_munmap (void *addr) {
 	// printf("do_munmap start==============\n");
 	struct thread *cur = thread_current();
 	struct mmap_file mf;
-	mf.va = addr;
+	mf.va = pg_round_down(addr) ;
+	// printf("do_munmap addr %p va %p\n", mf.va, addr);
 
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
@@ -192,8 +214,8 @@ do_munmap (void *addr) {
 		// puts("circle!!!!!!!!!!!!!!");
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
-		if(pml4_is_dirty (thread_current()->pml4, p->va)) {
-			// puts("dirrrrrrrrrrrrrrrrrrrty");
+		if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
+			// printf("file write aTTTTTTTTTT\n");
 			file_write_at(p->f, p->va, p->read_bytes, p->offset);
 		}
 		delete_frame(p);
@@ -213,16 +235,20 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	/*file_close*/
 }
 
-static void 
-delete_mmap (struct hash_elem *elem, void *aux) {
+static void delete_mmap (struct hash_elem *elem, void *aux) {
 	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
-	do_munmap(found_mf->va);
+	// printf("delete mmappppppp!!\n");
+	if(found_mf != NULL)
+		do_munmap(found_mf->va);
 }
 
-void
-mmap_hash_kill (struct hash *hash) {
+void mmap_hash_kill (struct hash *hash) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	hash_destroy(hash, delete_mmap);
+	// printf("mmap hash killlllllll!!!\n");
+	if(hash != NULL) {
+		hash_apply(hash, delete_mmap);
+		hash_destroy(hash, NULL);
+	}
 }
 
