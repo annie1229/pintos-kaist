@@ -38,6 +38,8 @@ struct thread;
 #define VM_TYPE(type) ((type) & 7)
 
 struct list frame_table;
+struct list_elem *lru_clock;
+
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are
  * uninit_page, file_page, anon_page, and page cache (project4).
@@ -61,8 +63,6 @@ struct page {
 	/* Memory Mapped File 에서 다룰 예정 */
 	struct list_elem mmap_elem; /* mmap 리스트 element */
 
-	/* Swapping 과제에서 다룰 예정 */
-	size_t swap_slot; /* 스왑 슬롯 */
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
@@ -89,7 +89,7 @@ struct file_info {
 struct frame {
 	void *kva;
 	struct page *page;
-	struct list_elem *frame_elem;
+	struct list_elem frame_elem;
 };
 
 struct mmap_file {
@@ -145,6 +145,7 @@ void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
 
+void free_frame(void *kva);
 void delete_frame(struct page *p);
 
 unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
@@ -153,5 +154,7 @@ struct page *page_lookup (const void *address);
 static hash_action_func delete_elem;
 static hash_action_func copy_elem;
 
+void add_frame_to_frame_table(struct frame *frame);
+void del_frame_from_frame_table(struct frame *frame);
 
 #endif  /* VM_VM_H */
