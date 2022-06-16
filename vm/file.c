@@ -53,9 +53,8 @@ file_backed_destroy (struct page *page) {
 void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
-	// printf("do_mmap start==============\n");
 	struct thread *cur = thread_current();
-  struct mmap_file *mf = calloc(1, sizeof(struct mmap_file));
+  	struct mmap_file *mf = calloc(1, sizeof(struct mmap_file));
 	list_init(&mf->vme_list);
 	mf->file = file;
 	mf->va = addr;
