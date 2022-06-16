@@ -156,5 +156,6 @@ static hash_action_func copy_elem;
 
 void add_frame_to_frame_table(struct frame *frame);
 void del_frame_from_frame_table(struct frame *frame);
+void try_to_free_frames(enum palloc_flags flags);
 
 #endif  /* VM_VM_H */

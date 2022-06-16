@@ -159,19 +159,23 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 /* Get the struct frame, that will be evicted. */
 static struct frame *
 vm_get_victim (void) {
+	// printf("vm_get_victim\n");
 	struct frame *victim = NULL;
 	struct thread *cur = thread_current();
 	 /* TODO: The policy for eviction is up to you. */
 	while(true) {
 		struct list_elem *clock = get_next_lru_clock();
+		if(clock==NULL) {
+			return NULL;
+		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
 		if(!pml4_is_accessed(cur->pml4, cur_page->va)) {
 			victim = cur_page->frame;
 			break;
 		}
-		pml4_set_accessed(cur->pml4, cur_page->va, 0);
+		pml4_set_accessed(cur->pml4, cur_page->va, false);
 	}
-	puts("found victim!!!============");
+	// printf("vm_get_victim done! kva %p, va %p\n", victim->kva, victim->page->va);
 	return victim;
 }
 
@@ -179,19 +183,20 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	puts("let's start evict!!!!!");
+	// printf("vm_evict_frame\n");
 	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
 	if(victim != NULL) {
-		puts("lets swap out in evict()");
+		// printf("evict frame is not null!!\n");
 		struct thread *cur = thread_current();
 		struct page *found_p = victim->page;
+		// printf("evict frame switch %d\n", page_get_type(found_p));
 		switch(page_get_type(found_p)) {
 			case VM_ANON:
 				swap_out(found_p);
 				break;
 			case VM_FILE:
-				puts("file!!!!");
+				// puts("file!!!!");
 				if(pml4_is_dirty(cur->pml4, found_p->va)) {
 					file_write_at(found_p->f, found_p->va, found_p->read_bytes, found_p->offset);
 				}
@@ -199,6 +204,7 @@ vm_evict_frame (void) {
 				break;
 		}
 	}
+	// printf("vm_evict_frame done! kva %p, va %p\n", victim->kva, victim->page->va);
 	return victim;
 }
 
@@ -212,15 +218,17 @@ vm_get_frame (void) {
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
-		puts("need vicitm!!!!!!");
+		// printf("frame fullLllllllll!!!!\n");
 		frame = vm_evict_frame();
-		puts("did evcit!!!!!!===========");
+		pml4_clear_page(thread_current()->pml4, frame->page->va);
+		// printf("add frame to evict !!!!! %p\n", frame->kva);
 		// PANIC("todo vm_get_frame");
 	} else {
 		frame = (struct frame *)calloc(1, sizeof(struct frame));
 		frame->kva = kva;
 	}
 	frame->page = NULL;
+	// printf("add frame to frame table\n");
 	add_frame_to_frame_table(frame);
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
@@ -247,7 +255,10 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct thread *cur = thread_current();
 	struct supplemental_page_table *spt UNUSED = &cur->spt;
 	struct page *page = spt_find_page(spt, addr);
-  
+//   if (is_kernel_vaddr(addr)) {
+// 		printf("handle fault is kernel addr!!!!!\n");
+// 		return false;
+// 	}
 	if (page == NULL) {
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
 		  if(f->rsp - 8 == addr) {
@@ -291,7 +302,7 @@ static bool
 vm_do_claim_page (struct page *page) {
 	struct thread *cur = thread_current();
 	struct frame *frame = vm_get_frame ();
-	struct supplemental_page_table *spt = &cur->spt;
+	// struct supplemental_page_table *spt = &cur->spt;
 
 	/* Set links */
 
@@ -392,7 +403,9 @@ page_lookup (const void *address) {
 
 
 void add_frame_to_frame_table(struct frame *frame) {
+	// printf("add frame to frame table\n");
 	list_push_back(&frame_table, &frame->frame_elem);
+	// printf("add frame to frame table done\n");
 }
 
 void del_frame_from_frame_table(struct frame *frame) {
@@ -400,10 +413,10 @@ void del_frame_from_frame_table(struct frame *frame) {
 }
 
 static struct list_elem *get_next_lru_clock() {
-	struct list_elem *next_clock = list_next(lru_clock);
 	if (list_empty(&frame_table)) {
 		return NULL;
 	}
+	struct list_elem *next_clock = list_next(lru_clock);
 	if (next_clock == list_tail(&frame_table)) {
 		next_clock = list_begin(&frame_table);
 	}
