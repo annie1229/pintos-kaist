@@ -263,7 +263,6 @@ void
 process_exit (void) {
 	struct thread *curr = thread_current ();
   	struct file **table = curr->fdt;
-	printf("process exit>?????dfsf??\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
@@ -273,7 +272,6 @@ process_exit (void) {
 	if (curr->run_file)
 		file_close(curr->run_file);
 
-	printf("process exit>222222?\n");
 	int cnt = 2;
 	while (cnt < FD_MAX) {
 		if (table[cnt]) { // != 0 && table[cnt] != NULL
@@ -283,16 +281,11 @@ process_exit (void) {
 		cnt++;
 	}
 
-	printf("process exit>2233333332222?\n");
 	sema_up(&curr->load_sema);
 	sema_down(&curr->exit_sema);
 
-	printf("process exit>44444444?\n");
-	printf("process exit>55555?\n");
 	palloc_free_page(table);
-	printf("process exit>6666?\n");
 	process_cleanup ();
-	printf("process exit>7777?\n");
 }
 
 /* Free the current process's resources. */

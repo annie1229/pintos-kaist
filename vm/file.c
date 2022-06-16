@@ -52,7 +52,7 @@ file_backed_destroy (struct page *page) {
 void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
-	printf("do_mmap start==============\n");
+	// printf("do_mmap start==============\n");
 	struct thread *cur = thread_current();
   struct mmap_file *mf = calloc(1, sizeof(struct mmap_file));
 	list_init(&mf->vme_list);
@@ -78,9 +78,9 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
 		aux->is_loaded = false;
-		printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
+		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_segment, aux)) {
-			printf("do mmap vm alloc page fail!!!\n");
+			// printf("do mmap vm alloc page fail!!!\n");
 			return NULL;
 		}
 		
@@ -94,20 +94,20 @@ do_mmap (void *addr, size_t length, int writable,
 		addr += PGSIZE;
 	}
 	
-	printf("hash insert start!!!!!! addr %p\n\n", mf->va);
+	// printf("hash insert start!!!!!! addr %p\n\n", mf->va);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
-		printf("hash insert fail!!!!!! addr %p\n\n", mf->va);
+		// printf("hash insert fail!!!!!! addr %p\n\n", mf->va);
 		// return mmap_f->va;
 		return NULL;
 	}
-	printf("do_mmap done==============\n");
+	// printf("do_mmap done==============\n");
 	return mf->va;
 }
 
 
 void
 mmap_hash_init (struct hash *m_hash UNUSED) {
-	printf(">>>>>>>>>>>>>>>>>>>>.mmap hash init!!!\n");
+	// printf(">>>>>>>>>>>>>>>>>>>>.mmap hash init!!!\n");
 	hash_init(m_hash, mmap_hash, mmap_less, NULL);
 }
 
@@ -116,7 +116,7 @@ mmap_hash_init (struct hash *m_hash UNUSED) {
 bool mmap_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED) {
   const struct mmap_file *a = hash_entry (a_, struct mmap_file, elem);
   const struct mmap_file *b = hash_entry (b_, struct mmap_file, elem);
-	printf("hash>>>>>page_less %p &&&& %p\n", a->va, b->va);
+	// printf("hash>>>>>page_less %p &&&& %p\n", a->va, b->va);
   return a->va < b->va;
 }
 
@@ -146,18 +146,18 @@ void copy_elem(struct hash_elem *hash_elem_, void* aux) {
 		}
 	}
 	if (hash_insert(&thread_current()->mmap_hash, &child_mf->elem) == NULL) {
-		printf("copy_elem fail!!!!!\n");
+		// printf("copy_elem fail!!!!!\n");
 	} else {
-		printf("copy elem succ!!!!!\n");
+		// printf("copy elem succ!!!!!\n");
 	}
 }
 
 /* Copy supplemental page table from src to dst */
 bool
 mmap_hash_table_copy (struct hash *dst UNUSED, struct hash *src UNUSED) {
-	printf("mmap hash table copy!!!start\n");
+	// printf("mmap hash table copy!!!start\n");
 	hash_apply(src, copy_elem);
-	printf("mmap hash table copy!!!done\n");
+	// printf("mmap hash table copy!!!done\n");
 	return true;
 }
 
@@ -196,16 +196,16 @@ lazy_load_segment (struct page *page, void *aux) {
 /* Do the munmap */
 bool
 do_munmap (void *addr) {
-	printf("do_munmap start==============\n");
+	// printf("do_munmap start==============\n");
 	struct thread *cur = thread_current();
 	struct mmap_file mf;
 	mf.va = pg_round_down(addr) ;
-	printf("do_munmap addr %p va %p\n", mf.va, addr);
+	// printf("do_munmap addr %p va %p\n", mf.va, addr);
 
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
 	if(e == NULL) {
-		printf("do_munmap fail\n");
+		// printf("do_munmap fail\n");
 		return false;
 	}
 	
@@ -214,7 +214,7 @@ do_munmap (void *addr) {
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
 		if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
-			printf("file write aTTTTTTTTTT\n");
+			// printf("file write aTTTTTTTTTT\n");
 			file_write_at(p->f, p->va, p->read_bytes, p->offset);
 		}
 		delete_frame(p);
@@ -223,7 +223,7 @@ do_munmap (void *addr) {
 	}
 	/*파일삭제?! */ 
 	free(found_mf);
-	printf("do_munmap done==============\n");
+	// printf("do_munmap done==============\n");
 	return true;
 }
 
@@ -236,14 +236,18 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 
 static void delete_mmap (struct hash_elem *elem, void *aux) {
 	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
-	printf("delete mmappppppp!!\n");
-	do_munmap(found_mf->va);
+	// printf("delete mmappppppp!!\n");
+	if(found_mf != NULL)
+		do_munmap(found_mf->va);
 }
 
 void mmap_hash_kill (struct hash *hash) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	printf("mmap hash killlllllll!!!\n");
-	hash_destroy(hash, delete_mmap);
+	// printf("mmap hash killlllllll!!!\n");
+	if(hash != NULL) {
+		hash_apply(hash, delete_mmap);
+		hash_destroy(hash, NULL);
+	}
 }
 

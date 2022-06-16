@@ -336,14 +336,11 @@ thread_tid (void) {
    returns to the caller. */
 void
 thread_exit (void) {
-	printf("thread exit>???????\n");
 	ASSERT (!intr_context ());
 
 #ifdef USERPROG
-	printf("thread exit>?ssssssss\n");
 	process_exit ();
 #endif
-	printf("thread exit111111\n");
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
