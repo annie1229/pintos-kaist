@@ -199,8 +199,11 @@ do_munmap (void *addr) {
 	// printf("do_munmap start==============\n");
 	struct thread *cur = thread_current();
 	struct mmap_file mf;
-	mf.va = pg_round_down(addr) ;
+	mf.va = addr;
 	// printf("do_munmap addr %p va %p\n", mf.va, addr);
+
+	if (hash_empty(&cur->mmap_hash))
+		return true;
 
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
@@ -210,21 +213,24 @@ do_munmap (void *addr) {
 	}
 	
 	struct mmap_file *found_mf = hash_entry (e, struct mmap_file, elem);
-	while (!list_empty (&found_mf->vme_list)) {
-		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
-		struct page *p = list_entry(list_elem, struct page, mmap_elem);
-		if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
-			// printf("file write aTTTTTTTTTT\n");
-			file_write_at(p->f, p->va, p->read_bytes, p->offset);
+	if (found_mf != NULL && &found_mf->vme_list != NULL) {
+		while (!list_empty (&found_mf->vme_list)) {
+			struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
+			struct page *p = list_entry(list_elem, struct page, mmap_elem);
+			if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
+				// printf("file write aTTTTTTTTTT\n");
+				file_write_at(p->f, p->va, p->read_bytes, p->offset);
+			}
+			// delete_frame(p);
+			// hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
+			// vm_dealloc_page(p);
 		}
-		delete_frame(p);
-		hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
-		vm_dealloc_page(p);
+		/*파일삭제?! */ 
+		// free(found_mf);	
 	}
-	/*파일삭제?! */ 
-	free(found_mf);
 	// printf("do_munmap done==============\n");
 	return true;
+	
 }
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
@@ -238,14 +244,20 @@ static void delete_mmap (struct hash_elem *elem, void *aux) {
 	struct mmap_file *found_mf = hash_entry (elem, struct mmap_file, elem);
 	// printf("delete mmappppppp!!\n");
 	if(found_mf != NULL)
-		do_munmap(found_mf->va);
+		if(found_mf->va == 0 || pg_ofs (found_mf->va) != 0 || is_kernel_vaddr(found_mf->va)) {
+    	// printf("delete mmao!!!!!\n");
+		} else {
+			if (is_user_vaddr(found_mf->va))
+				do_munmap(found_mf->va);
+		}
 }
 
 void mmap_hash_kill (struct hash *hash) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 	// printf("mmap hash killlllllll!!!\n");
-	if(hash != NULL) {
+	if (!hash_empty(hash)) {
+		// printf("mmap hash killlllllllnot empty\n\n");
 		hash_apply(hash, delete_mmap);
 		hash_destroy(hash, NULL);
 	}

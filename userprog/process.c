@@ -164,8 +164,8 @@ __do_fork (void *aux) {
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
 	mmap_hash_init(&current->mmap_hash);
-	if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
-		goto error;
+	// if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
+	// 	goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
@@ -262,13 +262,15 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-  	struct file **table = curr->fdt;
+  struct file **table = curr->fdt;
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
   
-	mmap_hash_kill(&curr->mmap_hash);
+	if (!hash_empty(&curr->mmap_hash))
+		mmap_hash_kill(&curr->mmap_hash);
+
 	if (curr->run_file)
 		file_close(curr->run_file);
 

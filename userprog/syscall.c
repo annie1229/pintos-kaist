@@ -316,9 +316,12 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
 
 void munmap (void *addr) {
   // printf("syscall munmap!!!!!\n");
+  lock_acquire(&filesys_lock);
   if(!do_munmap(addr)) {
     // printf("syscall munmap fail!!!!!\n");
+    lock_release(&filesys_lock);
     exit(-1);
   };
+  lock_release(&filesys_lock);
   // printf("syscall munmap done!!!!!\n");
 }
