@@ -171,6 +171,7 @@ vm_get_victim (void) {
 		}
 		pml4_set_accessed(cur->pml4, cur_page->va, 0);
 	}
+	puts("found victim!!!============");
 	return victim;
 }
 
@@ -178,9 +179,11 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
+	puts("let's start evict!!!!!");
 	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
 	if(victim != NULL) {
+		puts("lets swap out in evict()");
 		struct thread *cur = thread_current();
 		struct page *found_p = victim->page;
 		switch(page_get_type(found_p)) {
@@ -188,6 +191,7 @@ vm_evict_frame (void) {
 				swap_out(found_p);
 				break;
 			case VM_FILE:
+				puts("file!!!!");
 				if(pml4_is_dirty(cur->pml4, found_p->va)) {
 					file_write_at(found_p->f, found_p->va, found_p->read_bytes, found_p->offset);
 				}
@@ -208,16 +212,19 @@ vm_get_frame (void) {
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
+		puts("need vicitm!!!!!!");
 		frame = vm_evict_frame();
+		puts("did evcit!!!!!!===========");
 		// PANIC("todo vm_get_frame");
 	} else {
 		frame = (struct frame *)calloc(1, sizeof(struct frame));
+		frame->kva = kva;
 	}
-	frame->kva = kva;
 	frame->page = NULL;
 	add_frame_to_frame_table(frame);
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
+	// puts("done get frame+++++++++++");
 	return frame;
 }
 
