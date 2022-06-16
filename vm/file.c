@@ -2,6 +2,7 @@
 
 #include "vm/vm.h"
 #include "threads/mmu.h"
+#include "userprog/syscall.h"
 #define PGBITS  12                         /* Number of offset bits. */
 #define PGSIZE  (1 << PGBITS)              /* Bytes in a page. */
 
@@ -94,7 +95,6 @@ do_mmap (void *addr, size_t length, int writable,
 		addr += PGSIZE;
 	}
 	
-	// printf("hash insert start!!!!!! addr %p\n\n", mf->va);
 	if (hash_insert(&cur->mmap_hash, &mf->elem) != NULL) {
 		// printf("hash insert fail!!!!!! addr %p\n\n", mf->va);
 		// return mmap_f->va;
@@ -200,31 +200,27 @@ do_munmap (void *addr) {
 	struct thread *cur = thread_current();
 	struct mmap_file mf;
 	mf.va = pg_round_down(addr) ;
-	// printf("do_munmap addr %p va %p\n", mf.va, addr);
+	printf("do_munmap addr %p va %p\n", mf.va, addr);
 
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
 	if(e == NULL) {
-		// printf("do_munmap fail\n");
+		printf("do_munmap fail\n");
 		return false;
 	}
 	
 	struct mmap_file *found_mf = hash_entry (e, struct mmap_file, elem);
 	while (!list_empty (&found_mf->vme_list)) {
-		// puts("circle!!!!!!!!!!!!!!");
+		puts("circle!!!!!!!!!!!!!!");
 		struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 		struct page *p = list_entry(list_elem, struct page, mmap_elem);
 		if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
-			// printf("file write aTTTTTTTTTT\n");
+			printf("file write aTTTTTTTTTT\n");
 			file_write_at(p->f, p->va, p->read_bytes, p->offset);
 		}
-		delete_frame(p);
-		hash_delete(&cur->spt.hash_page_table, &p->hash_elem);
-		vm_dealloc_page(p);
 	}
-	/*파일삭제?! */ 
-	free(found_mf);
-	// printf("do_munmap done==============\n");
+	// free(found_mf);
+	printf("do_munmap done================\n");
 	return true;
 }
 

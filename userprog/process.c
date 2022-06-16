@@ -164,8 +164,8 @@ __do_fork (void *aux) {
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
 	mmap_hash_init(&current->mmap_hash);
-	if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
-		goto error;
+	// if (!mmap_hash_table_copy (&current->mmap_hash, &parent->mmap_hash))
+	// 	goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
@@ -267,8 +267,9 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-  
-	mmap_hash_kill(&curr->mmap_hash);
+	if(!hash_empty(&curr->mmap_hash)) {
+		mmap_hash_kill(&curr->mmap_hash);
+	}
 	if (curr->run_file)
 		file_close(curr->run_file);
 
@@ -280,10 +281,8 @@ process_exit (void) {
 		}
 		cnt++;
 	}
-
 	sema_up(&curr->load_sema);
 	sema_down(&curr->exit_sema);
-
 	palloc_free_page(table);
 	process_cleanup ();
 }
@@ -294,6 +293,7 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
+	mmap_hash_kill(&curr->mmap_hash); /*왜 여기에서 하면 안될까? */
 	supplemental_page_table_kill (&curr->spt);
 #endif
 

@@ -12,6 +12,11 @@
     "flags.h": "c",
     "*.inc": "c",
     "pte.h": "c",
-    "palloc.h": "c"
+    "palloc.h": "c",
+    "vector": "c",
+    "memory": "c",
+    "optional": "c",
+    "string_view": "c",
+    "system_error": "c"
   }
 }
