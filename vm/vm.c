@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "threads/vaddr.h"
 #include "lib/string.h"
+#include "devices/disk.h"
 #define ONE_MB (1 << 20) // 1MB    
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
@@ -21,6 +22,7 @@ vm_init (void) {
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
+	lru_clock = NULL;
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -42,6 +44,7 @@ static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
 static struct frame *vm_get_frame (void);
+static struct list_elem *get_next_lru_clock();
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -185,6 +188,7 @@ vm_get_frame (void) {
 	}
 	frame->kva = kva;
 	frame->page = NULL;
+	add_frame_to_frame_table(frame);
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -295,6 +299,19 @@ static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	vm_dealloc_page(p);
 }
 
+void free_frame(void *kva) {
+	struct list_elem *cur_elem = list_begin(&frame_table);
+
+		while (cur_elem != list_end(&frame_table)) {
+			struct frame *found_frame = list_entry(cur_elem, struct frame, frame_elem);
+			if (found_frame->kva == kva) {
+				delete_frame(found_frame->page);
+				break;
+			}
+			cur_elem = list_next(cur_elem);
+		}
+}
+
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
 		pml4_clear_page(thread_current()->pml4, p->va);
@@ -337,4 +354,22 @@ page_lookup (const void *address) {
 	// printf("page lookup %p!!!!%p\n", address, p.va);
   e = hash_find (&spt->hash_page_table, &p.hash_elem);
   return e != NULL ? hash_entry (e, struct page, hash_elem) : NULL;
+}
+
+
+void add_frame_to_frame_table(struct frame *frame) {
+	list_push_back(&frame_table, &frame->frame_elem);
+}
+
+void del_frame_from_frame_table(struct frame *frame) {
+	list_remove(&frame->frame_elem);
+}
+
+static struct list_elem *get_next_lru_clock() {
+	struct list_elem *next_clock = list_next(lru_clock);
+	if (next_clock == list_tail(&frame_table)) {
+		return NULL;
+	}
+	// lru_clock = next_clock;
+	return next_clock;
 }
