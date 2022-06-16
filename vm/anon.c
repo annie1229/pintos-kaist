@@ -5,7 +5,6 @@
 #include "lib/kernel/bitmap.h"
 /* DO NOT MODIFY BELOW LINE */
 static struct disk *swap_disk;
-static struct swap_table *swap_table;
 static bool anon_swap_in (struct page *page, void *kva);
 static bool anon_swap_out (struct page *page);
 static void anon_destroy (struct page *page);
@@ -22,6 +21,8 @@ static struct swap_table {
 	size_t size;
 	struct bitmap *used;
 };
+
+static struct swap_table *swap_table;
 
 /* Initialize the data for anonymous pages */
 void
@@ -75,7 +76,7 @@ anon_swap_out (struct page *page) {
 		addr += DISK_SECTOR_SIZE;
 	}
 	del_frame_from_frame_table(page->frame);
-	delete_frame(page);
+	// delete_frame(page);
 	return true;
 }
 

@@ -5,6 +5,8 @@
 #include "vm/inspect.h"
 #include "hash.h"
 #include "threads/vaddr.h"
+#include "threads/mmu.h"
+#include "threads/palloc.h"
 #include "lib/string.h"
 #include "devices/disk.h"
 #define ONE_MB (1 << 20) // 1MB    
@@ -22,7 +24,7 @@ vm_init (void) {
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
-	lru_clock = NULL;
+	lru_clock = list_head(&frame_table);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -158,8 +160,17 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
+	struct thread *cur = thread_current();
 	 /* TODO: The policy for eviction is up to you. */
-
+	while(true) {
+		struct list_elem *clock = get_next_lru_clock();
+		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
+		if(!pml4_is_accessed(cur->pml4, cur_page->va)) {
+			victim = cur_page->frame;
+			break;
+		}
+		pml4_set_accessed(cur->pml4, cur_page->va, 0);
+	}
 	return victim;
 }
 
@@ -167,10 +178,24 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	struct frame *victim UNUSED = vm_get_victim ();
+	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
-
-	return NULL;
+	if(victim != NULL) {
+		struct thread *cur = thread_current();
+		struct page *found_p = victim->page;
+		switch(page_get_type(found_p)) {
+			case VM_ANON:
+				swap_out(found_p);
+				break;
+			case VM_FILE:
+				if(pml4_is_dirty(cur->pml4, found_p->va)) {
+					file_write_at(found_p->f, found_p->va, found_p->read_bytes, found_p->offset);
+				}
+				swap_out(found_p);
+				break;
+		}
+	}
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -179,12 +204,14 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = (struct frame *)calloc(1, sizeof(struct frame));
+	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
-		frame = NULL;
-		PANIC("todo vm_get_frame");
+		frame = vm_evict_frame();
+		// PANIC("todo vm_get_frame");
+	} else {
+		frame = (struct frame *)calloc(1, sizeof(struct frame));
 	}
 	frame->kva = kva;
 	frame->page = NULL;
@@ -367,9 +394,12 @@ void del_frame_from_frame_table(struct frame *frame) {
 
 static struct list_elem *get_next_lru_clock() {
 	struct list_elem *next_clock = list_next(lru_clock);
-	if (next_clock == list_tail(&frame_table)) {
+	if (list_empty(&frame_table)) {
 		return NULL;
 	}
-	// lru_clock = next_clock;
+	if (next_clock == list_tail(&frame_table)) {
+		next_clock = list_begin(&frame_table);
+	}
+	lru_clock = next_clock;
 	return next_clock;
 }
