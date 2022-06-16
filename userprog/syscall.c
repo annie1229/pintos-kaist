@@ -216,15 +216,15 @@ int read (int fd, void *buffer, unsigned size) {
   return -1;
 }
 
-int write (int fd UNUSED, const void *buffer, unsigned size) {
-  check_valid_string(buffer, size);
+int write (int fd UNUSED, const void *str, unsigned size) {
+  check_valid_string(str, size);
 
   if (fd == 0) // STDIN일때 -1
     return -1;
 
   if (fd == 1) {
     lock_acquire(&filesys_lock);
-	  putbuf(buffer, size);
+	  putbuf(str, size);
     lock_release(&filesys_lock);
     return size;
   }
@@ -234,11 +234,10 @@ int write (int fd UNUSED, const void *buffer, unsigned size) {
   }
   if (file) {
     lock_acquire(&filesys_lock);
-    int write_byte = file_write(file, buffer, size);
+    int write_byte = file_write(file, str, size);
     lock_release(&filesys_lock);
     if(write_byte != 0) {
-      /* pml4_set_dirty (uint64_t *pml4, const void *vpage, bool dirty) {*/
-      pml4_set_dirty(thread_current()->pml4, buffer, true);
+      pml4_set_dirty(thread_current()->pml4, str, true);
     }
     return write_byte;
   }
@@ -286,7 +285,6 @@ void check_valid_buffer(void *buffer, unsigned size, bool writable) {
   for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, buffer + i);
     if(!p->writable) {
-      // printf("check valid buffer writable %d, p->writable\n",p->writable);
       exit(-1);
     }
   }
@@ -299,29 +297,24 @@ void check_valid_string(const void *str, unsigned size) {
   for(int i=0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, str + i);
     if(p == NULL) {
-      // printf("check valid buffer writable %d, p->writable\n", p->writable);
       exit(-1);
     }
   }
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-  // printf("syscall mmap!!!!! %d \n", KERN_BASE - USER_STACK < length);
-  // printf("mmap sfsfsdfs!!!!! addr %p = %d, length %u = %d, iskernel %d\n", addr, addr <= 0, length, length <= 0, is_kernel_vaddr(addr));
-  if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr)) {
-    // printf("mmap fail!!!!! addr %p length %u %x iskernel %d\n", addr, length, length, is_kernel_vaddr(addr));
+  if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr))
     return NULL;
-}
   struct file *f = thread_current()->fdt[fd];
   struct file *open_file = file_reopen(f);
   return do_mmap(addr, length, writable, open_file, offset);
 }
 
 void munmap (void *addr) {
-  // printf("syscall munmap!!!!!\n");
+  lock_acquire(&filesys_lock);
   if(!do_munmap(addr)) {
-    // printf("syscall munmap fail!!!!!\n");
+    lock_release(&filesys_lock);
     exit(-1);
   };
-  // printf("syscall munmap done!!!!!\n");
+  lock_release(&filesys_lock);
 }
