@@ -66,7 +66,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
 		p->va = pg_round_down(upage);
-		
 		/* 부모의 페이지를 복사한 경우 */
 		if (type & VM_MARKER_1) {
 			struct page *parent_page = (struct page *)aux;
@@ -159,20 +158,24 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 /* Get the struct frame, that will be evicted. */
 static struct frame *
 vm_get_victim (void) {
-	printf("vm_get_victim\n");
+	// printf("vm_get_victim\n");
 	struct frame *victim = NULL;
 	struct thread *cur = thread_current();
 	 /* TODO: The policy for eviction is up to you. */
 	while(true) {
 		struct list_elem *clock = get_next_lru_clock();
+		if (clock == NULL) {
+			return NULL;
+			// printf("clock is nullllllllll!\n\n");
+		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
 		if(!pml4_is_accessed(cur->pml4, cur_page->va)) {
 			victim = cur_page->frame;
 			break;
 		}
-		pml4_set_accessed(cur->pml4, cur_page->va, 0);
+		pml4_set_accessed(cur->pml4, cur_page->va, false);
 	}
-	printf("vm_get_victim done! kva %p, va %p\n", victim->kva, victim->page->va);
+	// printf("vm_get_victim done! kva %p, va %p\n", victim->kva, victim->page->va);
 	return victim;
 }
 
@@ -180,14 +183,14 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	printf("vm_evict_frame\n");
+	// printf("vm_evict_frame\n");
 	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
 	if(victim != NULL) {
-		printf("evict frame is not null!!\n");
+		// printf("evict frame is not null!!\n");
 		struct thread *cur = thread_current();
 		struct page *found_p = victim->page;
-		printf("evict frame switch %d\n", page_get_type(found_p));
+		// printf("evict frame switch %d\n", page_get_type(found_p));
 		switch(page_get_type(found_p)) {
 			case VM_ANON:
 				swap_out(found_p);
@@ -200,7 +203,7 @@ vm_evict_frame (void) {
 				break;
 		}
 	}
-	printf("vm_evict_frame done! kva %p, va %p\n", victim->kva, victim->page->va);
+	// printf("vm_evict_frame done! kva %p, va %p\n", victim->kva, victim->page->va);
 	return victim;
 }
 
@@ -214,9 +217,10 @@ vm_get_frame (void) {
 	/* TODO: Fill this function. */
 	void* kva = palloc_get_page(PAL_USER);
 	if (kva == NULL) {
-		printf("frame fullLllllllll!!!!\n");
+		// printf("frame fullLllllllll!!!!\n");
 		frame = vm_evict_frame();
-		printf("add frame to evict !!!!! %p\n", frame->kva);
+		pml4_clear_page(thread_current()->pml4, frame->page->va);
+		// printf("add frame to evict !!!!! %p\n", frame->kva);
 		// PANIC("todo vm_get_frame");
 	} else {
 		frame = (struct frame *)calloc(1, sizeof(struct frame));
@@ -250,10 +254,11 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &cur->spt;
 	struct page *page = spt_find_page(spt, addr);
   if (is_kernel_vaddr(addr)) {
-		printf("handle fault is kernel addr!!!!!\n");
-		return false;
+		// printf("handle fault is kernel addr!!!!!\n");
+		// return false;
 	}
 	if (page == NULL) {
+		// printf("handle fault page is nulllllllll!%p\n", addr);
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
 		  if(f->rsp - 8 == addr) {
         for (uint64_t i = cur->stack_bottom - PGSIZE; pg_round_down(addr) <= i; i -= PGSIZE) {
@@ -263,6 +268,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 				return true;
 			}
 		}
+		// printf("is one mb over!!!!!! not present %d??\n", not_present);
 		return false;
 	}
 	if(write && !page->writable) {

@@ -48,6 +48,7 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
+	// printf("anon swap in!!! page->va %p, kva %p\n", page->va, kva);
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = anon_page->swap_slot;
 	void *addr = kva;
@@ -62,7 +63,7 @@ anon_swap_in (struct page *page, void *kva) {
 /* Swap out the page by writing contents to the swap disk. */
 static bool
 anon_swap_out (struct page *page) {
-	printf("anon swap out!!! page->va %p\n", page->va);
+	// printf("anon swap out!!! page->va %p\n", page->va);
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 8, false);
 
@@ -71,7 +72,7 @@ anon_swap_out (struct page *page) {
 	}
 	anon_page->swap_slot = idx;
 
-	printf("anon swap slot!!! idx %u\n", idx);
+	// printf("anon swap slot!!! idx %u\n", idx);
 	void *addr = page->va;
 	for(int i = idx; i < idx + 8; i++) {
 		disk_write(swap_disk, i, addr);
@@ -79,7 +80,7 @@ anon_swap_out (struct page *page) {
 	}
 	del_frame_from_frame_table(page->frame);
 	page->frame = NULL;
-	printf("anon swap del_frame_from_frame_table!!!\n");
+	// printf("anon swap del_frame_from_frame_table!!!\n");
 	// delete_frame(page);
 	return true;
 }
