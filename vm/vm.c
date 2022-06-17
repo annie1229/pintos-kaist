@@ -66,7 +66,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		 * TODO: should modify the field after calling the uninit_new. */
 		struct page *p = (struct page *)calloc(1, sizeof(struct page));
 		p->va = pg_round_down(upage);
-		
 		/* 부모의 페이지를 복사한 경우 */
 		if (type & VM_MARKER_1) {
 			struct page *parent_page = (struct page *)aux;
@@ -165,8 +164,9 @@ vm_get_victim (void) {
 	 /* TODO: The policy for eviction is up to you. */
 	while(true) {
 		struct list_elem *clock = get_next_lru_clock();
-		if(clock==NULL) {
+		if (clock == NULL) {
 			return NULL;
+			// printf("clock is nullllllllll!\n\n");
 		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
 		if(!pml4_is_accessed(cur->pml4, cur_page->va)) {
@@ -260,6 +260,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 // 		return false;
 // 	}
 	if (page == NULL) {
+		// printf("handle fault page is nulllllllll!%p\n", addr);
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
 		  if(f->rsp - 8 == addr) {
         for (uint64_t i = cur->stack_bottom - PGSIZE; pg_round_down(addr) <= i; i -= PGSIZE) {
@@ -269,6 +270,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 				return true;
 			}
 		}
+		// printf("is one mb over!!!!!! not present %d??\n", not_present);
 		return false;
 	}
 	if(write && !page->writable) {

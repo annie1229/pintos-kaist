@@ -54,7 +54,7 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
-	// puts("anon_swap_in!!!!!!!!!");
+	// printf("anon swap in!!! page->va %p, kva %p\n", page->va, kva);
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = anon_page->swap_slot;
 	void *addr = kva;
