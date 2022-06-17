@@ -169,9 +169,20 @@ vm_get_victim (void) {
 			// printf("clock is nullllllllll!\n\n");
 		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
+		int cnt = list_size(&frame_table);
 		if(!pml4_is_accessed(cur->pml4, cur_page->va) && cur_page->frame != NULL) {
-			victim = cur_page->frame;
-			break;
+			if(page_get_type(cur_page) == VM_FILE) {
+				if(!pml4_is_dirty(cur->pml4, cur_page->va) || cnt == 0) {
+					victim = cur_page->frame;
+					break;
+				}
+			}
+			if(page_get_type(cur_page) == VM_ANON) {
+				victim = cur_page->frame;
+				break;
+			}
+			cnt -= 1;
+
 		}
 		pml4_set_accessed(cur->pml4, cur_page->va, false);
 	}

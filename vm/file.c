@@ -3,6 +3,7 @@
 #include "vm/vm.h"
 #include "threads/mmu.h"
 #include "userprog/syscall.h"
+#include <string.h>
 #define PGBITS  12                         /* Number of offset bits. */
 #define PGSIZE  (1 << PGBITS)              /* Bytes in a page. */
 
@@ -34,10 +35,17 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
+	// printf("compare tow address !!!!! %p, %p\n", kva, page->frame->kva);
+	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", page->f, page->frame->kva);
+	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	struct file_page *file_page = &page->file;
-	if (file_read_at(&page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
+	// printf("file_length %d\n", file_length(&page->f));
+	if (file_read_at(page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
 		return false;
-	memset (kva + page->read_bytes, 0, page->zero_bytes);
+	if(kva+page->read_bytes != PGSIZE) {
+		memset (kva + page->read_bytes, 0, page->zero_bytes);
+	}
+	
 	page->is_loaded = true;
 	return true;
 }
@@ -209,7 +217,7 @@ do_munmap (void *addr) {
 	struct hash_elem *e;
 	e = hash_find(&cur->mmap_hash, &mf.elem);
 	if(e == NULL) {
-		printf("do_munmap fail\n");
+		// printf("do_munmap fail\n");
 		return false;
 	}
 	
