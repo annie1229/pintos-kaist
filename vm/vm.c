@@ -71,20 +71,17 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* 부모의 페이지를 복사한 경우 */
 		if (type & VM_MARKER_1) {
 			struct page *parent_page = (struct page *)aux;
-			/* 보라 : 부모 페이지가 uninit 일 경우 lazyload에서 부모의 aux가 free 될 수 있음. calloc?memcpy? */
-			void *_aux = (parent_page->uninit).aux;
-			uninit_new(p, pg_round_down(upage), init, type, _aux, anon_initializer);
+
 			if(VM_TYPE(type) == VM_ANON) {
-				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, anon_initializer);
+				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), NULL, anon_initializer);
 				if(parent_page->anon.swap_slot != NULL)  {
 					p->is_child = true;
 				}
-				memcpy(&p->anon, &parent_page->anon, sizeof(struct anon_page));
+				p->anon.swap_slot = parent_page->anon.swap_slot;
 			}
 
 			if(VM_TYPE(type) == VM_FILE) {
-				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, file_backed_initializer);
-				memcpy(&p->file, &parent_page->file, sizeof(struct file_page));
+				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), NULL, file_backed_initializer);
 			}
 			
 			p->writable = parent_page->writable;
