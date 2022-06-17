@@ -32,7 +32,7 @@ vm_anon_init (void) {
 	// puts("anon int!!");
 	swap_disk = disk_get(1, 1);
 	swap_table = calloc(1, sizeof(struct swap_table));
-	swap_table->size = disk_size(swap_disk);
+	swap_table->size = disk_size(swap_disk) / 8;
 	// printf("size!! : %d\n", swap_table->size);
 	swap_table->used = bitmap_create(swap_table->size);
 	// printf("bits size!!!! %d\n", bitmap_size (swap_table->used));
@@ -58,11 +58,11 @@ anon_swap_in (struct page *page, void *kva) {
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = anon_page->swap_slot;
 	void *addr = kva;
-	for(int i = idx; i < idx + 8; i++) {
-		disk_read(swap_disk, i, addr);
+	for(int i = 0; i < 8; i++) {
+		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	bitmap_set_multiple(swap_table->used, idx, 8, false);
+	bitmap_set(swap_table->used, idx, false);
 	return true;
 }
 
@@ -71,7 +71,7 @@ static bool
 anon_swap_out (struct page *page) {
 	// printf("anon swap out!!! page->va %p\n", page->va);
 	struct anon_page *anon_page = &page->anon;
-	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 8, false);
+	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 1, false);
 
 	if (idx == BITMAP_ERROR) {
 		// puts("BITMAP_ERROR!!!!!!!!");
@@ -81,8 +81,8 @@ anon_swap_out (struct page *page) {
 
 	// printf("anon swap slot!!! idx %u\n", idx);
 	void *addr = page->va;
-	for(int i = idx; i < idx + 8; i++) {
-		disk_write(swap_disk, i, addr);
+	for(int i = 0; i < 8; i++) {
+		disk_write(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
 	del_frame_from_frame_table(page->frame);

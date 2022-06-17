@@ -171,13 +171,13 @@ vm_get_victim (void) {
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
 		int cnt = list_size(&frame_table);
 		if(!pml4_is_accessed(cur->pml4, cur_page->va) && cur_page->frame != NULL) {
-			if(page_get_type(cur_page) == VM_FILE) {
+			if(VM_TYPE(page_get_type(cur_page)) == VM_FILE) {
 				if(!pml4_is_dirty(cur->pml4, cur_page->va) || cnt == 0) {
 					victim = cur_page->frame;
 					break;
 				}
 			}
-			if(page_get_type(cur_page) == VM_ANON) {
+			if(VM_TYPE(page_get_type(cur_page)) == VM_ANON) {
 				victim = cur_page->frame;
 				break;
 			}
@@ -202,7 +202,7 @@ vm_evict_frame (void) {
 		struct thread *cur = thread_current();
 		struct page *found_p = victim->page;
 		// printf("evict frame switch %d\n", page_get_type(found_p));
-		switch(page_get_type(found_p)) {
+		switch(VM_TYPE(page_get_type(found_p))) {
 			case VM_ANON:
 				swap_out(found_p);
 				break;
