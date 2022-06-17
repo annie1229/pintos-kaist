@@ -45,7 +45,6 @@ file_backed_swap_in (struct page *page, void *kva) {
 	if(kva+page->read_bytes != PGSIZE) {
 		memset (kva + page->read_bytes, 0, page->zero_bytes);
 	}
-	
 	page->is_loaded = true;
 	return true;
 }
@@ -231,8 +230,11 @@ do_munmap (void *addr) {
 				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
+			/*페이지, 프레임 다 해제 해야 하지 않나 */ 
+			pml4_clear_page(cur->pml4, p->va);
 		}	
 	}
+	
 	// printf("do_munmap done==============\n");
 	return true;
 }
