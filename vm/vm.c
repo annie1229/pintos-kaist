@@ -173,6 +173,7 @@ vm_get_victim (void) {
 	// printf("vm_get_victim\n");
 	struct frame *victim = NULL;
 	struct thread *cur = thread_current();
+	int cnt = list_size(&frame_table);
 	 /* TODO: The policy for eviction is up to you. */
 	int cnt = list_size(&frame_table);
 	while(true) {
@@ -359,7 +360,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
-	if(p != NULL) {
+	if (p != NULL) {
 		delete_frame(p);
 		vm_dealloc_page(p);
 	}
@@ -380,8 +381,8 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		pml4_clear_page(thread_current()->pml4, p->va);
-	 	palloc_free_page(p->frame->kva);
+		// pml4_clear_page(thread_current()->pml4, p->va);
+	 	// palloc_free_page(p->frame->kva);
 		free(p->frame);
 	}
 }

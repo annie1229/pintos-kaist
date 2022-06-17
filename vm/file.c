@@ -230,8 +230,8 @@ do_munmap (void *addr) {
 				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
-			/*페이지, 프레임 다 해제 해야 하지 않나 */ 
 			pml4_clear_page(cur->pml4, p->va);
+	 		// palloc_free_page(p->frame->kva);
 		}	
 	}
 	
