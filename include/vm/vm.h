@@ -54,6 +54,7 @@ struct page {
 	
 	bool writable;
 	bool is_loaded;
+	bool is_child;
 	struct file* f;
 
 	size_t offset;

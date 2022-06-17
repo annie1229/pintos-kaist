@@ -62,7 +62,13 @@ anon_swap_in (struct page *page, void *kva) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	bitmap_set(swap_table->used, idx, false);
+	if(page->is_child) {
+		puts("swap innnnnn anon");
+		page->is_child = false;
+	} else {
+		bitmap_set(swap_table->used, idx, false);
+	}
+	page->anon.swap_slot = NULL;
 	return true;
 }
 

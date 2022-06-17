@@ -75,7 +75,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			void *_aux = (parent_page->uninit).aux;
 			uninit_new(p, pg_round_down(upage), init, type, _aux, anon_initializer);
 			if(VM_TYPE(type) == VM_ANON) {
-				uninit_new(p, pg_round_down(upage), init, type, _aux, anon_initializer);
+				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, anon_initializer);
+				if(parent_page->anon.swap_slot != NULL)  {
+					p->is_child = true;
+				}
 				memcpy(&p->anon, &parent_page->anon, sizeof(struct anon_page));
 			}
 
@@ -182,6 +185,7 @@ vm_get_victim (void) {
 			// printf("clock is nullllllllll!\n\n");
 		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
+		// printf("access bit %d type %d\n", pml4_is_accessed(cur->pml4, cur_page->va), page_get_type(cur_page));
 		if(!pml4_is_accessed(cur->pml4, cur_page->va) && cur_page->frame != NULL) {
 			if(VM_TYPE(page_get_type(cur_page)) == VM_FILE) {
 				if(!pml4_is_dirty(cur->pml4, cur_page->va) || cnt == 0) {
@@ -331,9 +335,7 @@ vm_do_claim_page (struct page *page) {
 	pml4_set_page(cur->pml4, page->va, frame->kva, page->writable);
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// printf("vm do claim page insert!!!!!!!%d va %p\n", page_get_type(page), page->va);
-	if(page_get_type(page) & VM_MARKER_0) {
-		return true;
-	}
+
 	return swap_in (page, frame->kva);
 }
 
