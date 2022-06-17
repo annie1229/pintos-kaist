@@ -169,7 +169,7 @@ vm_get_victim (void) {
 			// printf("clock is nullllllllll!\n\n");
 		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
-		if(!pml4_is_accessed(cur->pml4, cur_page->va)) {
+		if(!pml4_is_accessed(cur->pml4, cur_page->va) && cur_page->frame != NULL) {
 			victim = cur_page->frame;
 			break;
 		}
@@ -197,9 +197,6 @@ vm_evict_frame (void) {
 				break;
 			case VM_FILE:
 				// puts("file!!!!");
-				if(pml4_is_dirty(cur->pml4, found_p->va)) {
-					file_write_at(found_p->f, found_p->va, found_p->read_bytes, found_p->offset);
-				}
 				swap_out(found_p);
 				break;
 		}
@@ -220,7 +217,7 @@ vm_get_frame (void) {
 	if (kva == NULL) {
 		// printf("frame fullLllllllll!!!!\n");
 		frame = vm_evict_frame();
-		pml4_clear_page(thread_current()->pml4, frame->page->va);
+		// pml4_clear_page(thread_current()->pml4, frame->page->va);
 		// printf("add frame to evict !!!!! %p\n", frame->kva);
 		// PANIC("todo vm_get_frame");
 	} else {
@@ -307,7 +304,6 @@ vm_do_claim_page (struct page *page) {
 	// struct supplemental_page_table *spt = &cur->spt;
 
 	/* Set links */
-
 	frame->page = page;
 	page->frame = frame;
 	// printf("vm do claim page %p writable %s kva %p!!\n", page->va, page->writable ? "true" : "false", frame->kva);

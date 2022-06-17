@@ -34,13 +34,26 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+	if (file_read_at(&page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
+		return false;
+	memset (kva + page->read_bytes, 0, page->zero_bytes);
+	page->is_loaded = true;
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+	if(pml4_is_dirty(thread_current()->pml4, page->va)) {
+		pml4_set_dirty(thread_current()->pml4, page->va, false);
+		file_write_at(page->f, page->va, page->read_bytes, page->offset);
+	}
+	del_frame_from_frame_table(page->frame);
+	pml4_clear_page(thread_current()->pml4, page->va);
+	page->frame = NULL;
+	return true;
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -205,8 +218,9 @@ do_munmap (void *addr) {
 		while (!list_empty (&found_mf->vme_list)) {
 			struct list_elem *list_elem = list_pop_front (&found_mf->vme_list);
 			struct page *p = list_entry(list_elem, struct page, mmap_elem);
-			if(pml4_is_dirty (thread_current()->pml4, p->va)) { //  || memcmp(p->f, p->va) != 0
-				// printf("file write aTTTTTTTTTT\n");
+			struct thread *cur = thread_current();
+			if(pml4_is_dirty (cur->pml4, p->va)) { 
+				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
 		}	

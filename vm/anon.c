@@ -33,9 +33,9 @@ vm_anon_init (void) {
 	swap_disk = disk_get(1, 1);
 	swap_table = calloc(1, sizeof(struct swap_table));
 	swap_table->size = disk_size(swap_disk);
-	printf("size!! : %d\n", swap_table->size);
+	// printf("size!! : %d\n", swap_table->size);
 	swap_table->used = bitmap_create(swap_table->size);
-	printf("bits size!!!! %d\n", bitmap_size (swap_table->used));
+	// printf("bits size!!!! %d\n", bitmap_size (swap_table->used));
 	// printf("bits not used start idx !!!! %d\n", bitmap_scan_and_flip(swap_table->used, 0, 8, false));
 	// puts("init done!!");
 }
@@ -86,6 +86,7 @@ anon_swap_out (struct page *page) {
 		addr += DISK_SECTOR_SIZE;
 	}
 	del_frame_from_frame_table(page->frame);
+	pml4_clear_page(thread_current()->pml4, page->va);
 	page->frame = NULL;
 	// printf("anon swap del_frame_from_frame_table!!!\n");
 	// delete_frame(page);
