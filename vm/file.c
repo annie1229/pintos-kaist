@@ -231,6 +231,8 @@ do_munmap (void *addr) {
 				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
+			pml4_clear_page(cur->pml4, p->va);
+	 		// palloc_free_page(p->frame->kva);
 		}	
 	}
 	// printf("do_munmap done==============\n");

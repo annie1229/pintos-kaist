@@ -161,6 +161,7 @@ vm_get_victim (void) {
 	// printf("vm_get_victim\n");
 	struct frame *victim = NULL;
 	struct thread *cur = thread_current();
+	int cnt = list_size(&frame_table);
 	 /* TODO: The policy for eviction is up to you. */
 	while(true) {
 		struct list_elem *clock = get_next_lru_clock();
@@ -169,7 +170,6 @@ vm_get_victim (void) {
 			// printf("clock is nullllllllll!\n\n");
 		}
 		struct page *cur_page = list_entry(clock, struct frame, frame_elem)->page;
-		int cnt = list_size(&frame_table);
 		if(!pml4_is_accessed(cur->pml4, cur_page->va) && cur_page->frame != NULL) {
 			if(VM_TYPE(page_get_type(cur_page)) == VM_FILE) {
 				if(!pml4_is_dirty(cur->pml4, cur_page->va) || cnt == 0) {
@@ -181,9 +181,8 @@ vm_get_victim (void) {
 				victim = cur_page->frame;
 				break;
 			}
-			cnt -= 1;
-
 		}
+		cnt -= 1;
 		pml4_set_accessed(cur->pml4, cur_page->va, false);
 	}
 	// printf("vm_get_victim done! kva %p, va %p\n", victim->kva, victim->page->va);
@@ -224,7 +223,7 @@ static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
-	void* kva = palloc_get_page(PAL_USER);
+	void* kva = palloc_get_page(PAL_USER | PAL_ZERO);
 	if (kva == NULL) {
 		// printf("frame fullLllllllll!!!!\n");
 		frame = vm_evict_frame();
@@ -349,8 +348,10 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
-	delete_frame(p);
-	vm_dealloc_page(p);
+	if (p != NULL) {
+		delete_frame(p);
+		vm_dealloc_page(p);
+	}
 }
 
 void free_frame(void *kva) {
@@ -368,8 +369,8 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		pml4_clear_page(thread_current()->pml4, p->va);
-	 	palloc_free_page(p->frame->kva);
+		// pml4_clear_page(thread_current()->pml4, p->va);
+	 	// palloc_free_page(p->frame->kva);
 		free(p->frame);
 	}
 }
