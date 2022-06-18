@@ -52,9 +52,13 @@ struct page {
 	/* Your implementation */
 	struct hash_elem hash_elem;
 	
+	bool is_stack;
+	bool is_child;
 	bool writable;
 	bool is_loaded;
 	struct file* f;
+
+	disk_sector_t swap_slot;
 
 	size_t offset;
 	size_t read_bytes;

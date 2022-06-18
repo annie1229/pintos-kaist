@@ -49,20 +49,29 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	// printf("anon initialize!!!!!!!!222\n");
 
 	struct anon_page *anon_page = &page->anon;
+	return true;
 }
 
 /* Swap in the page by read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
+	if(page->is_stack) {
+		return true;
+	}
 	// printf("anon swap in!!! page->va %p, kva %p\n", page->va, kva);
 	struct anon_page *anon_page = &page->anon;
-	size_t idx = anon_page->swap_slot;
+	size_t idx = page->swap_slot;
 	void *addr = kva;
 	for(int i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	bitmap_set(swap_table->used, idx, false);
+	if(page->is_child) {
+		page->is_child = false;
+	} else {
+		bitmap_set(swap_table->used, idx, false);
+
+	}
 	return true;
 }
 
@@ -70,6 +79,9 @@ anon_swap_in (struct page *page, void *kva) {
 static bool
 anon_swap_out (struct page *page) {
 	// printf("anon swap out!!! page->va %p\n", page->va);
+	if(page->is_stack) {
+		page->is_stack = false;
+	}
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 1, false);
 
@@ -77,7 +89,7 @@ anon_swap_out (struct page *page) {
 		// puts("BITMAP_ERROR!!!!!!!!");
 		return false;
 	}
-	anon_page->swap_slot = idx;
+	page->swap_slot = idx;
 
 	// printf("anon swap slot!!! idx %u\n", idx);
 	void *addr = page->va;
