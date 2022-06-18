@@ -52,13 +52,9 @@ struct page {
 	/* Your implementation */
 	struct hash_elem hash_elem;
 	
-	bool is_stack;
 	bool is_child;
 	bool writable;
-	bool is_loaded;
 	struct file* f;
-
-	disk_sector_t swap_slot;
 
 	size_t offset;
 	size_t read_bytes;
@@ -66,6 +62,8 @@ struct page {
 
 	/* Memory Mapped File 에서 다룰 예정 */
 	struct list_elem mmap_elem; /* mmap 리스트 element */
+	
+	disk_sector_t swap_slot;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -82,7 +80,6 @@ struct page {
 
 struct file_info {
 	bool writable; /* True일 경우 해당 주소에 write 가능 	False일 경우 해당 주소에 write 불가능 */
-	bool is_loaded; /* 물리메모리의 탑재 여부를 알려주는 플래그 */
 	struct file* file; /* 가상주소와 맵핑된 파일 */
 	size_t offset; /* 읽어야 할 파일 오프셋 */
 	size_t read_bytes; /* 가상페이지에 쓰여져 있는 데이터 크기 */
