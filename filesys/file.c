@@ -79,7 +79,7 @@ file_read (struct file *file, void *buffer, off_t size) {
 /* Reads SIZE bytes from FILE into BUFFER,
  * starting at offset FILE_OFS in the file.
  * Returns the number of bytes actually read,
- * which may be less than SIZE if end of file is reached.
+* which may be less than SIZE if end of file is reached.
  * The file's current position is unaffected. */
 off_t
 file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) {

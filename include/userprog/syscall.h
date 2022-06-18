@@ -31,6 +31,8 @@ unsigned tell (int fd);
 void close (int fd);
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap (void *addr);
+off_t file_write_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs);
+off_t file_read_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs);
 
 
 

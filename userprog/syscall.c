@@ -268,8 +268,8 @@ void close (int fd) {
   // puts("close!!");
   struct file * file = thread_current()->fdt[fd];
   if (file) {
-    lock_acquire(&filesys_lock);
     thread_current()->fdt[fd] = NULL;
+    lock_acquire(&filesys_lock);
     file_close(file);
     lock_release(&filesys_lock);
   }
@@ -320,17 +320,27 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
   int ret;
   lock_acquire(&filesys_lock);
   struct file *open_file = file_reopen(f);
-  ret = do_mmap(addr, length, writable, open_file, offset);
   lock_release(&filesys_lock);
-  return ret;
+  return do_mmap(addr, length, writable, open_file, offset);
 }
 
 void munmap (void *addr) {
   // puts("mmunmap!!");
-  lock_acquire(&filesys_lock);
   if(!do_munmap(addr)) {
-    lock_release(&filesys_lock);
     exit(-1);
   };
-  lock_release(&filesys_lock);
+}
+
+off_t file_write_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs) {
+    lock_acquire(&filesys_lock);
+    off_t ret = file_write_at (file, buffer, size, file_ofs);
+    lock_release(&filesys_lock);
+    return ret;
+}
+
+off_t file_read_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs) {
+    lock_acquire(&filesys_lock);
+    off_t ret = file_read_at (file, buffer, size, file_ofs);
+    lock_release(&filesys_lock);
+    return ret;
 }
