@@ -1,24 +1,25 @@
 #include "userprog/syscall.h"
+
 #include <stdio.h>
 #include <syscall-nr.h>
-#include "threads/interrupt.h"
-#include "threads/thread.h"
-#include "threads/loader.h"
-#include "userprog/gdt.h"
-#include "threads/flags.h"
+
 #include "intrinsic.h"
+#include "threads/flags.h"
+#include "threads/interrupt.h"
+#include "threads/loader.h"
+#include "threads/thread.h"
+#include "userprog/gdt.h"
 
 // * USERPROG 추가
-#include "threads/palloc.h"
-#include "filesys/filesys.h"
 #include "filesys/file.h"
-
-#include "vm/vm.h"
+#include "filesys/filesys.h"
+#include "threads/palloc.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
+#include "vm/vm.h"
 
-void syscall_entry (void);
-void syscall_handler (struct intr_frame *);
+void syscall_entry(void);
+void syscall_handler(struct intr_frame *);
 
 /* System call.
  *
@@ -33,26 +34,23 @@ void syscall_handler (struct intr_frame *);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void
-syscall_init (void) {
-
+void syscall_init(void) {
   lock_init(&filesys_lock);
 
-	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
-			((uint64_t)SEL_KCSEG) << 32);
-	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
+  write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG)
+                                                               << 32);
+  write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
 
-	/* The interrupt service rountine should not serve any interrupts
-	 * until the syscall_entry swaps the userland stack to the kernel
-	 * mode stack. Therefore, we masked the FLAG_FL. */
-	write_msr(MSR_SYSCALL_MASK,
-			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+  /* The interrupt service rountine should not serve any interrupts
+   * until the syscall_entry swaps the userland stack to the kernel
+   * mode stack. Therefore, we masked the FLAG_FL. */
+  write_msr(MSR_SYSCALL_MASK,
+            FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
 /* The main system call interface */
-void
-syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
+void syscall_handler(struct intr_frame *f UNUSED) {
+  // TODO: Your implementation goes here.
   switch (f->R.rax) {
     case SYS_HALT:
       halt();
@@ -78,8 +76,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
       break;
     case SYS_READ:
       f->R.rax = (uint64_t)read(f->R.rdi, f->R.rsi, f->R.rdx);
-      break;  
-    case SYS_WRITE:      
+      break;
+    case SYS_WRITE:
       f->R.rax = (uint64_t)write(f->R.rdi, f->R.rsi, f->R.rdx);
       break;
     case SYS_EXEC:
@@ -87,7 +85,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
       break;
     case SYS_WAIT:
       f->R.rax = (uint64_t)wait(f->R.rdi);
-      break; 
+      break;
     case SYS_SEEK:
       seek(f->R.rdi, f->R.rsi);
       break;
@@ -120,19 +118,19 @@ void exit(int status) {
    * 프로세스 종료 메시지 출력
    * 출력 양식: "프로세스 이름: exit(종료상태)"
    * thread 종료
-   */ 
+   */
   struct thread *cur = thread_current();
   cur->exit_status = status;
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 }
 
-int fork (const char *thread_name) {
+int fork(const char *thread_name) {
   check_address(thread_name);
   return process_fork(thread_name, &thread_current()->ptf);
 }
 
-int exec (const char *file_name) {
+int exec(const char *file_name) {
   check_address(file_name);
 
   int file_size = strlen(file_name) + 1;
@@ -148,12 +146,10 @@ int exec (const char *file_name) {
   }
 }
 
-int wait (tid_t pid) {
-  return process_wait(pid);
-}
+int wait(tid_t pid) { return process_wait(pid); }
 
-bool create (const char *file, unsigned initial_size) {
-  /* 
+bool create(const char *file, unsigned initial_size) {
+  /*
    * 파일 이름과 크기에 해당하는 파일 생성
    * 파일 생성 성공 시 true 반환, 실패 시 false 반환
    */
@@ -161,8 +157,8 @@ bool create (const char *file, unsigned initial_size) {
   return filesys_create(file, initial_size);
 }
 
-bool remove (const char *file) {
-  /* 
+bool remove(const char *file) {
+  /*
    * 파일 이름에 해당하는 파일을 제거
    * 파일 제거 성공 시 true 반환, 실패 시 false 반환
    */
@@ -170,7 +166,7 @@ bool remove (const char *file) {
   return filesys_remove(file);
 }
 
-int open (const char *file) {
+int open(const char *file) {
   check_address(file);
   struct thread *cur = thread_current();
   struct file *fd = filesys_open(file);
@@ -187,14 +183,13 @@ int open (const char *file) {
   return -1;
 }
 
-int filesize (int fd) {
+int filesize(int fd) {
   struct file *file = thread_current()->fdt[fd];
-  if (file)
-    return file_length(file);
+  if (file) return file_length(file);
   return -1;
 }
 
-int read (int fd, void *buffer, unsigned size) {
+int read(int fd, void *buffer, unsigned size) {
   check_valid_buffer(buffer, size, true);
   if (fd == 1) {
     return -1;
@@ -216,47 +211,45 @@ int read (int fd, void *buffer, unsigned size) {
   return -1;
 }
 
-int write (int fd UNUSED, const void *str, unsigned size) {
+int write(int fd UNUSED, const void *str, unsigned size) {
   check_valid_string(str, size);
 
-  if (fd == 0) // STDIN일때 -1
+  if (fd == 0)  // STDIN일때 -1
     return -1;
 
   if (fd == 1) {
     lock_acquire(&filesys_lock);
-	  putbuf(str, size);
+    putbuf(str, size);
     lock_release(&filesys_lock);
     return size;
   }
 
   struct file *file = thread_current()->fdt[fd];
-  if(file==NULL) {
+  if (file == NULL) {
   }
   if (file) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, str, size);
     lock_release(&filesys_lock);
-    if(write_byte != 0) {
+    if (write_byte != 0) {
       pml4_set_dirty(thread_current()->pml4, str, true);
     }
     return write_byte;
   }
 }
 
-void seek (int fd, unsigned position) {
+void seek(int fd, unsigned position) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile)
-    file_seek(curfile, position);
+  if (curfile) file_seek(curfile, position);
 }
 
-unsigned tell (int fd) {
+unsigned tell(int fd) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile)
-    return file_tell(curfile);
+  if (curfile) return file_tell(curfile);
 }
 
-void close (int fd) {
-  struct file * file = thread_current()->fdt[fd];
+void close(int fd) {
+  struct file *file = thread_current()->fdt[fd];
   if (file) {
     lock_acquire(&filesys_lock);
     thread_current()->fdt[fd] = NULL;
@@ -268,12 +261,14 @@ void close (int fd) {
 void check_address(void *addr) {
   struct thread *cur = thread_current();
 #ifdef VM
-  if (addr == NULL || is_kernel_vaddr(addr) || spt_find_page(&cur->spt, addr) == NULL) {
+  if (addr == NULL || is_kernel_vaddr(addr) ||
+      spt_find_page(&cur->spt, addr) == NULL) {
     // print("check_address fail!!!");
     exit(-1);
   }
 #else
-  if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
+  if (addr == NULL || is_kernel_vaddr(addr) ||
+      pml4_get_page(cur->pml4, addr) == NULL)
     exit(-1);
 #endif
 }
@@ -282,9 +277,9 @@ void check_valid_buffer(void *buffer, unsigned size, bool writable) {
   check_address(buffer);
   struct thread *cur = thread_current();
 
-  for(int i=0; i < size; i += PGSIZE) {
+  for (int i = 0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, buffer + i);
-    if(!p->writable) {
+    if (!p->writable) {
       exit(-1);
     }
   }
@@ -294,25 +289,26 @@ void check_valid_string(const void *str, unsigned size) {
   check_address(str);
   struct thread *cur = thread_current();
 
-  for(int i=0; i < size; i += PGSIZE) {
+  for (int i = 0; i < size; i += PGSIZE) {
     struct page *p = spt_find_page(&cur->spt, str + i);
-    if(p == NULL) {
+    if (p == NULL) {
       exit(-1);
     }
   }
 }
 
-void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-  if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr))
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset) {
+  if (addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 ||
+      fd == 1 || pg_ofs(addr) != 0 || length < offset || is_kernel_vaddr(addr))
     return NULL;
   struct file *f = thread_current()->fdt[fd];
   struct file *open_file = file_reopen(f);
   return do_mmap(addr, length, writable, open_file, offset);
 }
 
-void munmap (void *addr) {
+void munmap(void *addr) {
   lock_acquire(&filesys_lock);
-  if(!do_munmap(addr)) {
+  if (!do_munmap(addr)) {
     lock_release(&filesys_lock);
     exit(-1);
   };
