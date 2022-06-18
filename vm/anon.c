@@ -61,6 +61,7 @@ anon_child_swap_in (struct page *parent_page, void *kva) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
+	parent_page->swap_slot = NULL;
 	return true;
 }
 
@@ -80,6 +81,7 @@ anon_swap_in (struct page *page, void *kva) {
 	// 	page->is_child = false;
 	// } else {
 	bitmap_set(swap_table->used, idx, false);
+	page->swap_slot = NULL;
 	// }
 	return true;
 }

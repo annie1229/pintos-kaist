@@ -188,7 +188,7 @@ lazy_load_mmap_file (struct page *page, void *aux) {
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read mmap fail!!!!!!!!!!!\n");
 		free(aux);
-		vm_dealloc_page(page);
+		delete_page (page); 
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
@@ -228,8 +228,10 @@ do_munmap (void *addr) {
 				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_at(p->f, p->va, p->read_bytes, p->offset);
 			}
-			pml4_clear_page(cur->pml4, p->va);
+			// spt_remove_page(&thread_current()->spt, page);
+			// pml4_clear_page(cur->pml4, p->va);
 	 		// palloc_free_page(p->frame->kva);
+			delete_page (p); 
 		}	
 	}
 	

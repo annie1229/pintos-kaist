@@ -94,10 +94,14 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			p->zero_bytes = parent_page->zero_bytes;
 			p->swap_slot = parent_page->swap_slot;
 
+			// if(page_get_type(parent_page) != VM_UNINIT) {
+			// 	vm_do_claim_page(p);
+			// }
+
 			/* Add the page to the process's address space. */
 			// printf("spt insert page in fork copy by parent!!!!!! va %p\n", p->va);
 			spt_insert_page(spt, p);
-			if(parent_page->frame != NULL ) {
+			if(parent_page->frame != NULL) {
 				vm_do_claim_page(p);
 				memcpy(p->frame->kva, parent_page->frame->kva, PGSIZE);
 			}
@@ -105,6 +109,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			if(parent_page->frame == NULL) {
 				if(parent_page->swap_slot != NULL) {
 					vm_do_claim_page(p);
+				// 	if(parent_page->is_stack) {
+				// 		p->is_stack = true;
+				// 		p->writable = true;
+				// 	} 
 					anon_child_swap_in(parent_page, p->frame->kva);
 				}
 			}
@@ -131,8 +139,8 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		if (type & VM_MARKER_0) {
 			// printf("vm alloc page vm marker 0!!!!!! addr %p\n", p->va);
 			p->writable = true;
-			vm_do_claim_page(p);
 			p->is_stack = true;
+			vm_do_claim_page(p);
 			return true;
 		}
 		// printf("vm alloc page init done %d!!!!!\n", page_get_type(p));
@@ -170,7 +178,7 @@ spt_insert_page (struct supplemental_page_table *spt,
 
 void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
-	vm_dealloc_page (page);
+	hash_delete(&spt->hash_page_table, &page->hash_elem);
 	return true;
 }
 
@@ -402,8 +410,8 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		// pml4_clear_page(thread_current()->pml4, p->va);
-	 	// palloc_free_page(p->frame->kva);
+		pml4_clear_page(thread_current()->pml4, p->va);
+	 	palloc_free_page(p->frame->kva);
 		free(p->frame);
 	}
 }
@@ -467,3 +475,9 @@ static struct list_elem *get_next_lru_clock() {
 	lru_clock = next_clock;
 	return next_clock;
 }
+
+void delete_page (struct page *page) {
+	spt_remove_page(&thread_current()->spt, page);
+	delete_frame(page);
+	vm_dealloc_page(page);
+} 

@@ -732,7 +732,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read fail!!!!!!!!!!!\n");
 		free(aux);
-		vm_dealloc_page(page);
+		delete_page (page); 
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
