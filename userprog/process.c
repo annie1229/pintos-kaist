@@ -74,7 +74,6 @@ initd (void *f_name) {
 	mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
 	process_init ();
-
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -217,6 +216,7 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
+	mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
 	success = load (file_name, &_if);
 	/* If load failed, quit. */
@@ -260,14 +260,16 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-  struct file **table = curr->fdt;
+  	struct file **table = curr->fdt;
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-  
-	if (!hash_empty(&curr->mmap_hash))
-		mmap_hash_kill(&curr->mmap_hash);
+	
+	#ifdef VM
+		mmap_hash_kill(&curr->mmap_hash); 
+		supplemental_page_table_kill (&curr->spt);
+	#endif
 
 	if (curr->run_file)
 		file_close(curr->run_file);
@@ -292,7 +294,7 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	mmap_hash_kill(&curr->mmap_hash); /*왜 여기에서 하면 안될까? */
+	mmap_hash_kill(&curr->mmap_hash); 
 	supplemental_page_table_kill (&curr->spt);
 #endif
 
@@ -805,7 +807,7 @@ setup_stack (struct intr_frame *if_) {
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {	
 		success = true;
 		if_->rsp = USER_STACK;
-		thread_current()->stack_bottom = USER_STACK;
+		thread_current()->stack_bottom = stack_bottom;
 	};
 	// printf("===============setup stack done %d===============\n", success);
 	return success;

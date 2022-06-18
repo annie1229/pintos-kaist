@@ -70,7 +70,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		if (type & VM_MARKER_1) {
 			struct page *parent_page = (struct page *)aux;
 			/* 보라 : 부모 페이지가 uninit 일 경우 lazyload에서 부모의 aux가 free 될 수 있음. calloc?memcpy? */
-			void *_aux = (parent_page->uninit).aux;
+			void *_aux;
 			bool is_uninit = false;
 			if(page_get_type(parent_page) == VM_UNINIT) {
 				is_uninit = true;
@@ -79,49 +79,33 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			}
 
 			if(VM_TYPE(type) == VM_ANON) {
-				uninit_new(p, pg_round_down(upage), init, type, _aux, anon_initializer);
-				if(!is_uninit) {
-					// anon_initializer(p, VM_ANON, NULL);
-					// if(parent_page->anon.swap_slot) {
-					// 	p->anon.swap_slot = parent_page->anon.swap_slot;
-					// 	p->is_child = true;
-					// }
-				}
-				// memcpy(&p->anon, &parent_page->anon, sizeof(struct anon_p_age));
+				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, anon_initializer);
 			}
 
 			if(VM_TYPE(type) == VM_FILE) {
-				if(!is_uninit) {
-					uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, file_backed_initializer);
-					// file_backed_initializer(p, VM_FILE, NULL);
-				// 	memcpy(&p->file, &parent_page->file, sizeof(struct file_page));
-				}
-				
+				uninit_new(p, pg_round_down(upage), init, VM_TYPE(type), _aux, file_backed_initializer);
 			}
 
 			p->va = pg_round_down(upage);
 			p->writable = parent_page->writable;
-			p->is_loaded = parent_page->is_loaded;
 			p->f = parent_page->f;
 			p->offset = parent_page->offset;
 			p->read_bytes = parent_page->read_bytes;
 			p->zero_bytes = parent_page->zero_bytes;
 			p->swap_slot = parent_page->swap_slot;
 
+			spt_insert_page(spt, p);
+			vm_do_claim_page(p);
+
 			if(parent_page->frame != NULL) {
-				vm_do_claim_page(p);
-				// struct frame *f = vm_get_frame();
-				// f->page = p;
-				// p->frame = f;
-				// memcpy(f->kva, parent_page->frame->kva, PGSIZE);
 				memcpy(p->frame->kva, parent_page->frame->kva, PGSIZE);
-				// pml4_set_page(thread_current()->pml4, p->va, f->kva, p->writable);
+				
 			}
 
 			/* Add the page to the process's address space. */
-			spt_insert_page(spt, p);
 			return true;
 		}
+
 		switch (VM_TYPE(type))
 		{
 			case VM_ANON:
@@ -140,11 +124,9 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 		/* stack 초기화 page인 경우 */
 		if (type & VM_MARKER_0) {
-			anon_initializer(p, VM_ANON, NULL);
 			p->writable = true;
-			p->is_loaded = true;
-			p->is_stack = true;
 			vm_do_claim_page(p);
+			p->is_stack = true;
 			return true;
 		}
 
@@ -170,15 +152,14 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 
 /* Insert PAGE into spt with validation. */
 bool
-spt_insert_page (struct supplemental_page_table *spt UNUSED,
-		struct page *page UNUSED) {
+spt_insert_page (struct supplemental_page_table *spt,
+		struct page *page) {
 	int succ = false;
 	/* TODO: Fill this function. */
 	page->va = pg_round_down(page->va);
 	if(hash_insert(&spt->hash_page_table, &page->hash_elem) == NULL) {
 		succ = true;
 		// printf("spt insert succ!!!!!\n");
-		return succ;
 	};
 	// printf("spt insert fail!!!!!\n");
 	return succ;
@@ -303,7 +284,10 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED, bool user U
 	if (page == NULL) {
 		// printf("handle fault page is nulllllllll!%p\n", addr);
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
-			if(f->rsp - 8 == addr) {
+			// puts("right user stack growth area");
+			// printf("f->rsp!%p\n", f->rsp);
+			if(f->rsp - 8 <= addr) {
+				// puts("right to stack grow");
         		for (uint64_t i = cur->stack_bottom - PGSIZE; pg_round_down(addr) <= i; i -= PGSIZE) {
           			vm_stack_growth(i);
           			cur->stack_bottom = i;
@@ -372,6 +356,12 @@ static void copy_elem(struct hash_elem *hash_elem, void* aux) {
 	if(type == VM_UNINIT) {
 		type = p->uninit.type;
 	}
+	if(p->is_stack) {
+		// puts("hello!!");
+		// vm_stack_growth(p->va);
+		// printf("parent page at%p\n", p->va);
+		// return;
+	}
 	vm_alloc_page_with_initializer(type | VM_MARKER_1, p->va, p->writable, NULL, p);
 }
 
@@ -417,7 +407,9 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	hash_destroy(&spt->hash_page_table, delete_elem);
+	if(!hash_empty(&spt->hash_page_table)) {
+		hash_destroy(&spt->hash_page_table, delete_elem);
+	}
 }
 
 /* Returns a hash value for page p. */

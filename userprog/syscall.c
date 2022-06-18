@@ -115,6 +115,7 @@ void halt(void) {
 }
 
 void exit(int status) {
+  // puts("exit!!");
   /*
    * 실행중인 스레드 구조체를 가져옴
    * 프로세스 종료 메시지 출력
@@ -128,11 +129,14 @@ void exit(int status) {
 }
 
 int fork (const char *thread_name) {
+  // puts("fork!!");
   check_address(thread_name);
-  return process_fork(thread_name, &thread_current()->ptf);
+  int ret = process_fork(thread_name, &thread_current()->ptf);
+  return ret;
 }
 
 int exec (const char *file_name) {
+  // puts("exec!!");
   check_address(file_name);
 
   int file_size = strlen(file_name) + 1;
@@ -149,10 +153,13 @@ int exec (const char *file_name) {
 }
 
 int wait (tid_t pid) {
+  // puts("wait!!");
   return process_wait(pid);
 }
 
 bool create (const char *file, unsigned initial_size) {
+
+  // puts("create!!");
   /* 
    * 파일 이름과 크기에 해당하는 파일 생성
    * 파일 생성 성공 시 true 반환, 실패 시 false 반환
@@ -162,6 +169,7 @@ bool create (const char *file, unsigned initial_size) {
 }
 
 bool remove (const char *file) {
+  // puts("remove!!");
   /* 
    * 파일 이름에 해당하는 파일을 제거
    * 파일 제거 성공 시 true 반환, 실패 시 false 반환
@@ -171,6 +179,7 @@ bool remove (const char *file) {
 }
 
 int open (const char *file) {
+  // puts("open!!");
   check_address(file);
   struct thread *cur = thread_current();
   struct file *fd = filesys_open(file);
@@ -195,6 +204,7 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned size) {
+  // puts("read!!");
   check_valid_buffer(buffer, size, true);
   if (fd == 1) {
     return -1;
@@ -217,6 +227,7 @@ int read (int fd, void *buffer, unsigned size) {
 }
 
 int write (int fd UNUSED, const void *str, unsigned size) {
+  // puts("write!!");
   check_valid_string(str, size);
 
   if (fd == 0) // STDIN일때 -1
@@ -236,9 +247,9 @@ int write (int fd UNUSED, const void *str, unsigned size) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, str, size);
     lock_release(&filesys_lock);
-    if(write_byte != 0) {
-      pml4_set_dirty(thread_current()->pml4, str, true);
-    }
+    // if(write_byte != 0) {
+    //   pml4_set_dirty(thread_current()->pml4, file, true);
+    // }
     return write_byte;
   }
 }
@@ -256,6 +267,7 @@ unsigned tell (int fd) {
 }
 
 void close (int fd) {
+  // puts("close!!");
   struct file * file = thread_current()->fdt[fd];
   if (file) {
     lock_acquire(&filesys_lock);
@@ -303,14 +315,20 @@ void check_valid_string(const void *str, unsigned size) {
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
+  // puts("mmap!!");
   if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr))
     return NULL;
   struct file *f = thread_current()->fdt[fd];
+  int ret;
+  lock_acquire(&filesys_lock);
   struct file *open_file = file_reopen(f);
-  return do_mmap(addr, length, writable, open_file, offset);
+  ret = do_mmap(addr, length, writable, open_file, offset);
+  lock_release(&filesys_lock);
+  return ret;
 }
 
 void munmap (void *addr) {
+  // puts("mmunmap!!");
   lock_acquire(&filesys_lock);
   if(!do_munmap(addr)) {
     lock_release(&filesys_lock);
