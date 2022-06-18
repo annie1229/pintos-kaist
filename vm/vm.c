@@ -71,9 +71,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			struct page *parent_page = (struct page *)aux;
 			/* 보라 : 부모 페이지가 uninit 일 경우 lazyload에서 부모의 aux가 free 될 수 있음. calloc?memcpy? */
 			void *_aux;
-			bool is_uninit = false;
 			if(page_get_type(parent_page) == VM_UNINIT) {
-				is_uninit = true;
 				_aux = (struct file_info*)calloc(1, sizeof(struct file_info));
 				memcpy(_aux, (parent_page->uninit).aux, sizeof(struct file_info));
 			}
@@ -94,10 +92,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			p->zero_bytes = parent_page->zero_bytes;
 			p->swap_slot = parent_page->swap_slot;
 
-			// if(page_get_type(parent_page) != VM_UNINIT) {
-			// 	vm_do_claim_page(p);
-			// }
-
 			/* Add the page to the process's address space. */
 			// printf("spt insert page in fork copy by parent!!!!!! va %p\n", p->va);
 			spt_insert_page(spt, p);
@@ -109,10 +103,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			if(parent_page->frame == NULL) {
 				if(parent_page->swap_slot != NULL) {
 					vm_do_claim_page(p);
-				// 	if(parent_page->is_stack) {
-				// 		p->is_stack = true;
-				// 		p->writable = true;
-				// 	} 
+					if(parent_page->is_stack) {
+						p->is_stack = true;
+						p->writable = true;
+					} 
 					anon_child_swap_in(parent_page, p->frame->kva);
 				}
 			}
@@ -260,10 +254,10 @@ vm_get_frame (void) {
 	} else {
 		frame = (struct frame *)calloc(1, sizeof(struct frame));
 		frame->kva = kva;
+		add_frame_to_frame_table(frame);
 	}
 	frame->page = NULL;
 	// printf("add frame to frame table\n");
-	add_frame_to_frame_table(frame);
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	// puts("done get frame+++++++++++");
@@ -410,6 +404,7 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
+		// del_frame_from_frame_table(p->frame);
 		pml4_clear_page(thread_current()->pml4, p->va);
 	 	palloc_free_page(p->frame->kva);
 		free(p->frame);

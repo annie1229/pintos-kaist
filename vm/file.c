@@ -57,7 +57,7 @@ file_backed_swap_out (struct page *page) {
 		pml4_set_dirty(thread_current()->pml4, page->va, false);
 		file_write_at(page->f, page->va, page->read_bytes, page->offset);
 	}
-	del_frame_from_frame_table(page->frame);
+	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
 	page->frame = NULL;
 	return true;
@@ -188,7 +188,7 @@ lazy_load_mmap_file (struct page *page, void *aux) {
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read mmap fail!!!!!!!!!!!\n");
 		free(aux);
-		delete_page (page); 
+		// delete_page (page); 
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");

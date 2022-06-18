@@ -24,7 +24,7 @@ static struct swap_table {
 };
 
 static struct swap_table *swap_table;
-
+static struct lock swap_lock;  
 /* Initialize the data for anonymous pages */
 void
 vm_anon_init (void) {
@@ -35,6 +35,8 @@ vm_anon_init (void) {
 	swap_table->size = disk_size(swap_disk) / 8;
 	// printf("size!! : %d\n", swap_table->size);
 	swap_table->used = bitmap_create(swap_table->size);
+	lock_init(&swap_lock);
+	
 	// printf("bits size!!!! %d\n", bitmap_size (swap_table->used));
 	// printf("bits not used start idx !!!! %d\n", bitmap_scan_and_flip(swap_table->used, 0, 8, false));
 	// puts("init done!!");
@@ -57,10 +59,12 @@ anon_child_swap_in (struct page *parent_page, void *kva) {
 	struct anon_page *anon_page = &parent_page->anon;
 	size_t idx = parent_page->swap_slot;
 	void *addr = kva;
+	lock_acquire(&swap_lock);
 	for(int i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
+	lock_release(&swap_lock);
 	parent_page->swap_slot = NULL;
 	return true;
 }
@@ -73,6 +77,8 @@ anon_swap_in (struct page *page, void *kva) {
 	struct anon_page *anon_page = &page->anon;
 	size_t idx = page->swap_slot;
 	void *addr = kva;
+  
+	lock_acquire(&swap_lock);
 	for(int i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
@@ -81,6 +87,7 @@ anon_swap_in (struct page *page, void *kva) {
 	// 	page->is_child = false;
 	// } else {
 	bitmap_set(swap_table->used, idx, false);
+	lock_release(&swap_lock);
 	page->swap_slot = NULL;
 	// }
 	return true;
@@ -91,6 +98,7 @@ static bool
 anon_swap_out (struct page *page) {
 	// printf("anon swap out!!! page->va %p\n", page->va);
 	struct anon_page *anon_page = &page->anon;
+	lock_acquire(&swap_lock);
 	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 1, false);
 
 	if (idx == BITMAP_ERROR) {
@@ -105,7 +113,8 @@ anon_swap_out (struct page *page) {
 		disk_write(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	del_frame_from_frame_table(page->frame);
+	lock_release(&swap_lock);	
+	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
 	page->frame = NULL;
 	// printf("anon swap del_frame_from_frame_table!!!\n");
