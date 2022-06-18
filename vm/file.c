@@ -1,6 +1,7 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "vm/vm.h"
+#include "threads/malloc.h"
 #include "threads/mmu.h"
 #include "userprog/syscall.h"
 #include <string.h>
@@ -41,7 +42,7 @@ file_backed_swap_in (struct page *page, void *kva) {
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	struct file_page *file_page = &page->file;
 	// printf("file_length %d\n", file_length(&page->f));
-	if (file_read_with_lock(page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
+	if (file_read_at(page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
 		return false;
 	if(kva+page->read_bytes != PGSIZE) {
 		memset (kva + page->read_bytes, 0, page->zero_bytes);
@@ -55,7 +56,7 @@ file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
 	if(pml4_is_dirty(thread_current()->pml4, page->va)) {
 		pml4_set_dirty(thread_current()->pml4, page->va, false);
-		file_write_with_lock(page->f, page->va, page->read_bytes, page->offset);
+		file_write_at(page->f, page->va, page->read_bytes, page->offset);
 	}
 	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
@@ -188,7 +189,7 @@ lazy_load_mmap_file (struct page *page, void *aux) {
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read mmap fail!!!!!!!!!!!\n");
 		free(aux);
-		// delete_page (page); 
+		// delete_page(page); 
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
@@ -228,13 +229,9 @@ do_munmap (void *addr) {
 				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_with_lock(p->f, p->va, p->read_bytes, p->offset);
 			}
-			// spt_remove_page(&thread_current()->spt, page);
-			// pml4_clear_page(cur->pml4, p->va);
-	 		// palloc_free_page(p->frame->kva);
 			delete_page (p); 
 		}	
 	}
-	
 	// printf("do_munmap done==============\n");
 	return true;
 }

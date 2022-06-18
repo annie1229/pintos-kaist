@@ -131,7 +131,9 @@ void exit(int status) {
 int fork (const char *thread_name) {
   // puts("fork!!");
   check_address(thread_name);
+  lock_acquire(&filesys_lock);
   int ret = process_fork(thread_name, &thread_current()->ptf);
+  lock_release(&filesys_lock);
   return ret;
 }
 
@@ -165,7 +167,10 @@ bool create (const char *file, unsigned initial_size) {
    * 파일 생성 성공 시 true 반환, 실패 시 false 반환
    */
   check_address(file);
-  return filesys_create(file, initial_size);
+  lock_acquire(&filesys_lock);
+  bool result = filesys_create(file, initial_size);
+  lock_release(&filesys_lock);
+  return result;
 }
 
 bool remove (const char *file) {
@@ -175,14 +180,18 @@ bool remove (const char *file) {
    * 파일 제거 성공 시 true 반환, 실패 시 false 반환
    */
   check_address(file);
-  return filesys_remove(file);
+  lock_acquire(&filesys_lock);
+  bool result = filesys_remove(file);
+  lock_release(&filesys_lock);
+  return result;
 }
 
 int open (const char *file) {
-  // puts("open!!");
   check_address(file);
   struct thread *cur = thread_current();
+  lock_acquire(&filesys_lock);
   struct file *fd = filesys_open(file);
+  lock_release(&filesys_lock);
   if (fd) {
     for (int i = 2; i < FD_MAX; i++) {
       if (!cur->fdt[i]) {
@@ -191,15 +200,21 @@ int open (const char *file) {
         return i;
       }
     }
+    lock_acquire(&filesys_lock);
     file_close(fd);
+    lock_release(&filesys_lock);
   }
   return -1;
 }
 
 int filesize (int fd) {
   struct file *file = thread_current()->fdt[fd];
-  if (file)
-    return file_length(file);
+  if (file) {
+    lock_acquire(&filesys_lock);
+    int length = file_length(file);
+    lock_release(&filesys_lock);
+    return length;
+  }
   return -1;
 }
 
@@ -245,23 +260,28 @@ int write (int fd UNUSED, const void *str, unsigned size) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, str, size);
     lock_release(&filesys_lock);
-    // if(write_byte != 0) {
-    //   pml4_set_dirty(thread_current()->pml4, file, true);
-    // }
     return write_byte;
   }
 }
 
 void seek (int fd, unsigned position) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile)
+  if (curfile) {
+    lock_acquire(&filesys_lock);
     file_seek(curfile, position);
+    lock_release(&filesys_lock);
+  }
 }
 
 unsigned tell (int fd) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile)
-    return file_tell(curfile);
+  if (curfile) {
+    lock_acquire(&filesys_lock);
+    unsigned result = file_tell(curfile);
+    lock_release(&filesys_lock);
+    return result;
+  }
+  return -1;
 }
 
 void close (int fd) {

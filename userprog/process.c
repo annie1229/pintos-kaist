@@ -152,6 +152,7 @@ __do_fork (void *aux) {
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
   	if_.R.rax = 0;
 
+	current->tf = if_;
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
@@ -277,7 +278,7 @@ process_exit (void) {
 	int cnt = 2;
 	while (cnt < FD_MAX) {
 		if (table[cnt]) { // != 0 && table[cnt] != NULL
-			file_close(table[cnt]);
+			close(cnt);
 			table[cnt] = NULL;
 		}
 		cnt++;
