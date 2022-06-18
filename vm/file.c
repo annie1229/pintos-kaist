@@ -46,7 +46,6 @@ file_backed_swap_in (struct page *page, void *kva) {
 	if(kva+page->read_bytes != PGSIZE) {
 		memset (kva + page->read_bytes, 0, page->zero_bytes);
 	}
-	page->is_loaded = true;
 	return true;
 }
 
@@ -98,7 +97,6 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->read_bytes = page_read_bytes;
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
-		aux->is_loaded = false;
 		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_mmap_file, aux)) {
 			// printf("do mmap vm alloc page fail!!!\n");
@@ -195,7 +193,6 @@ lazy_load_mmap_file (struct page *page, void *aux) {
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
 	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
-	page->is_loaded = true;
 	free(aux);
 	// printf("-----------------lazy load seg mmap done!!!!!!!!!!!!!!!\n");
 	return true;

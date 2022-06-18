@@ -94,15 +94,20 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			p->zero_bytes = parent_page->zero_bytes;
 			p->swap_slot = parent_page->swap_slot;
 
+			/* Add the page to the process's address space. */
+			// printf("spt insert page in fork copy by parent!!!!!! va %p\n", p->va);
 			spt_insert_page(spt, p);
-			vm_do_claim_page(p);
-
-			if(parent_page->frame != NULL) {
+			if(parent_page->frame != NULL ) {
+				vm_do_claim_page(p);
 				memcpy(p->frame->kva, parent_page->frame->kva, PGSIZE);
-				
 			}
 
-			/* Add the page to the process's address space. */
+			if(parent_page->frame == NULL) {
+				if(parent_page->swap_slot != NULL) {
+					vm_do_claim_page(p);
+					anon_child_swap_in(parent_page, p->frame->kva);
+				}
+			}
 			return true;
 		}
 
@@ -124,12 +129,12 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 		/* stack 초기화 page인 경우 */
 		if (type & VM_MARKER_0) {
+			// printf("vm alloc page vm marker 0!!!!!! addr %p\n", p->va);
 			p->writable = true;
 			vm_do_claim_page(p);
 			p->is_stack = true;
 			return true;
 		}
-
 		// printf("vm alloc page init done %d!!!!!\n", page_get_type(p));
 		return true;
 	} else {
@@ -159,9 +164,7 @@ spt_insert_page (struct supplemental_page_table *spt,
 	page->va = pg_round_down(page->va);
 	if(hash_insert(&spt->hash_page_table, &page->hash_elem) == NULL) {
 		succ = true;
-		// printf("spt insert succ!!!!!\n");
 	};
-	// printf("spt insert fail!!!!!\n");
 	return succ;
 }
 
@@ -262,6 +265,7 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	// printf("vm stack growth!!!! addr %p\n", addr);
   vm_alloc_page(VM_ANON | VM_MARKER_0, addr, true);
 }
 
@@ -277,10 +281,10 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED, bool user U
 	struct thread *cur = thread_current();
 	struct supplemental_page_table *spt UNUSED = &cur->spt;
 	struct page *page = spt_find_page(spt, addr);
-//   if (is_kernel_vaddr(addr)) {
-// 		printf("handle fault is kernel addr!!!!!\n");
-// 		return false;
-// 	}
+  if (is_kernel_vaddr(addr)) {
+		// printf("handle fault is kernel addr!!!!!\n");
+		return false;
+	}
 	if (page == NULL) {
 		// printf("handle fault page is nulllllllll!%p\n", addr);
 		if(USER_STACK - (uint64_t)addr <= ONE_MB){
@@ -294,8 +298,10 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED, bool user U
         		}
 				return true;
 			}
+			// printf("-8!!!!!!!!\n");
+		} else {
+			// printf("is one mb over!!!!!! not present %d??\n", not_present);
 		}
-		// printf("is one mb over!!!!!! not present %d??\n", not_present);
 		return false;
 	}
 	if(write && !page->writable) {
@@ -356,12 +362,12 @@ static void copy_elem(struct hash_elem *hash_elem, void* aux) {
 	if(type == VM_UNINIT) {
 		type = p->uninit.type;
 	}
-	if(p->is_stack) {
+	// if(p->is_stack) {
 		// puts("hello!!");
 		// vm_stack_growth(p->va);
 		// printf("parent page at%p\n", p->va);
 		// return;
-	}
+	// }
 	vm_alloc_page_with_initializer(type | VM_MARKER_1, p->va, p->writable, NULL, p);
 }
 
@@ -407,9 +413,8 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	if(!hash_empty(&spt->hash_page_table)) {
+	if (!hash_empty(&spt->hash_page_table))
 		hash_destroy(&spt->hash_page_table, delete_elem);
-	}
 }
 
 /* Returns a hash value for page p. */

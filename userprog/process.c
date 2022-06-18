@@ -265,11 +265,11 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	
-	#ifdef VM
-		mmap_hash_kill(&curr->mmap_hash); 
-		supplemental_page_table_kill (&curr->spt);
-	#endif
+  
+#ifdef VM
+	mmap_hash_kill(&curr->mmap_hash);
+	supplemental_page_table_kill (&curr->spt);
+#endif
 
 	if (curr->run_file)
 		file_close(curr->run_file);
@@ -294,7 +294,7 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	mmap_hash_kill(&curr->mmap_hash); 
+	mmap_hash_kill(&curr->mmap_hash);
 	supplemental_page_table_kill (&curr->spt);
 #endif
 
@@ -727,7 +727,6 @@ lazy_load_segment (struct page *page, void *aux) {
 	page->read_bytes = f_info->read_bytes;
 	page->zero_bytes = f_info->zero_bytes;
 	page->writable = f_info->writable;
-	page->is_loaded = f_info->is_loaded;
 	// printf("lazy load file_read start!!!!!!!file %p, kva %p\n", f_info->file, page->frame->kva);
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
@@ -738,7 +737,6 @@ lazy_load_segment (struct page *page, void *aux) {
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
 	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
-	page->is_loaded = true;
 	free(aux);
 	// printf("-----------------lazy load seg done!!!!!!!!!!!!!!!\n");
 	return true;
@@ -779,7 +777,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		aux->read_bytes = page_read_bytes;
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
-		aux->is_loaded = false;
 		// printf("load segment >>>>> upage %p read %d zero %d writable %s\n", upage, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
@@ -803,7 +800,7 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-	// printf("===============setup stack start===============\n");
+	// printf("===============setup stack start=============== stack bottom %p USER_STACK %p thread_current stack bottom %p\n", stack_bottom, USER_STACK, thread_current()->stack_bottom);
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {	
 		success = true;
 		if_->rsp = USER_STACK;

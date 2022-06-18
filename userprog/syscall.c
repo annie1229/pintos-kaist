@@ -64,6 +64,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
       memcpy(&thread_current()->ptf, f, sizeof(struct intr_frame));
       f->R.rax = (uint64_t)fork(f->R.rdi);
       break;
+    case SYS_EXEC:
+      exec(f->R.rdi);
+      break;
+    case SYS_WAIT:
+      f->R.rax = (uint64_t)wait(f->R.rdi);
+      break; 
     case SYS_CREATE:
       f->R.rax = (uint64_t)create(f->R.rdi, f->R.rsi);
       break;
@@ -79,15 +85,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
     case SYS_READ:
       f->R.rax = (uint64_t)read(f->R.rdi, f->R.rsi, f->R.rdx);
       break;  
-    case SYS_WRITE:      
+    case SYS_WRITE:     
       f->R.rax = (uint64_t)write(f->R.rdi, f->R.rsi, f->R.rdx);
       break;
-    case SYS_EXEC:
-      exec(f->R.rdi);
-      break;
-    case SYS_WAIT:
-      f->R.rax = (uint64_t)wait(f->R.rdi);
-      break; 
     case SYS_SEEK:
       seek(f->R.rdi, f->R.rsi);
       break;
@@ -241,8 +241,6 @@ int write (int fd UNUSED, const void *str, unsigned size) {
   }
 
   struct file *file = thread_current()->fdt[fd];
-  if(file==NULL) {
-  }
   if (file) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, str, size);
@@ -281,12 +279,12 @@ void check_address(void *addr) {
   struct thread *cur = thread_current();
 #ifdef VM
   if (addr == NULL || is_kernel_vaddr(addr) || spt_find_page(&cur->spt, addr) == NULL) {
-    // print("check_address fail!!!");
     exit(-1);
   }
 #else
-  if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
+  if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL){
     exit(-1);
+  }
 #endif
 }
 
