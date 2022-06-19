@@ -55,8 +55,6 @@ struct page {
 	bool is_child;
 	bool writable;
 	struct file* f;
-
-	bool is_stack;
 	
 	size_t offset;
 	size_t read_bytes;

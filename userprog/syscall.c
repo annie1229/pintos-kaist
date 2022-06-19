@@ -131,9 +131,7 @@ void exit(int status) {
 int fork (const char *thread_name) {
   // puts("fork!!");
   check_address(thread_name);
-  lock_acquire(&filesys_lock);
   int ret = process_fork(thread_name, &thread_current()->ptf);
-  lock_release(&filesys_lock);
   return ret;
 }
 
@@ -333,11 +331,9 @@ void check_valid_string(const void *str, unsigned size) {
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-  // puts("mmap!!");
   if(addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 || fd == 1|| pg_ofs (addr) != 0 || length < offset || is_kernel_vaddr(addr))
     return NULL;
   struct file *f = thread_current()->fdt[fd];
-  int ret;
   lock_acquire(&filesys_lock);
   struct file *open_file = file_reopen(f);
   lock_release(&filesys_lock);
@@ -345,7 +341,6 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
 }
 
 void munmap (void *addr) {
-  // puts("mmunmap!!");
   if(!do_munmap(addr)) {
     exit(-1);
   };

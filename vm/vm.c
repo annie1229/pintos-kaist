@@ -71,7 +71,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			struct page *parent_page = (struct page *)aux;
 			/* 보라 : 부모 페이지가 uninit 일 경우 lazyload에서 부모의 aux가 free 될 수 있음. calloc?memcpy? */
 			void *_aux;
-			if(page_get_type(parent_page) == VM_UNINIT) {
+			if(VM_TYPE(parent_page->operations->type) == VM_UNINIT) {
 				_aux = (struct file_info*)calloc(1, sizeof(struct file_info));
 				memcpy(_aux, (parent_page->uninit).aux, sizeof(struct file_info));
 			}
@@ -103,10 +103,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			if(parent_page->frame == NULL) {
 				if(parent_page->swap_slot != NULL) {
 					vm_do_claim_page(p);
-					if(parent_page->is_stack) {
-						p->is_stack = true;
-						p->writable = true;
-					} 
 					anon_child_swap_in(parent_page, p->frame->kva);
 				}
 			}
@@ -133,7 +129,6 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		if (type & VM_MARKER_0) {
 			// printf("vm alloc page vm marker 0!!!!!! addr %p\n", p->va);
 			p->writable = true;
-			p->is_stack = true;
 			vm_do_claim_page(p);
 			return true;
 		}
@@ -294,9 +289,8 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED, bool user U
 			// printf("f->rsp!%p\n", f->rsp);
 			if(f->rsp - 8 <= addr) {
 				// puts("right to stack grow");
-        		for (uint64_t i = cur->stack_bottom - PGSIZE; pg_round_down(addr) <= i; i -= PGSIZE) {
+        		for (uint64_t i = pg_round_down(f->R.rbp) - PGSIZE; pg_round_down(addr) <= i; i -= PGSIZE) {
           			vm_stack_growth(i);
-          			cur->stack_bottom = i;
         		}
 				return true;
 			}
@@ -360,16 +354,10 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 
 static void copy_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry (hash_elem, struct page, hash_elem);
-	enum vm_type type = page_get_type(p);
+	enum vm_type type = VM_TYPE(p->operations->type);
 	if(type == VM_UNINIT) {
 		type = p->uninit.type;
 	}
-	// if(p->is_stack) {
-		// puts("hello!!");
-		// vm_stack_growth(p->va);
-		// printf("parent page at%p\n", p->va);
-		// return;
-	// }
 	vm_alloc_page_with_initializer(type | VM_MARKER_1, p->va, p->writable, NULL, p);
 }
 

@@ -18,6 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "userprog/syscall.h"
 
 
 #ifdef VM
@@ -177,7 +178,9 @@ __do_fork (void *aux) {
 	struct file **table = parent->fdt;
 	while (cnt < FD_MAX) {
 		if (table[cnt]) {
+			lock_acquire(&filesys_lock);
 			current->fdt[cnt] = file_duplicate(table[cnt]);
+			lock_release(&filesys_lock);
 		} else {
 			current->fdt[cnt] = NULL;
 		}
@@ -272,8 +275,11 @@ process_exit (void) {
 	supplemental_page_table_kill (&curr->spt);
 #endif
 
-	if (curr->run_file)
+	if (curr->run_file) {
+		// lock_acquire(&filesys_lock);
 		file_close(curr->run_file);
+		// lock_release(&filesys_lock);
+	}
 
 	int cnt = 2;
 	while (cnt < FD_MAX) {
@@ -415,12 +421,18 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 
 	/* Open executable file. */
+	lock_acquire(&filesys_lock);
 	file = filesys_open (argv[0]);
+	lock_release(&filesys_lock);
 	// printf("--------open file argv %s---------\n", argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+
+	// * 추가
+	t->run_file = file;
+	file_deny_write(file);
 
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -506,9 +518,6 @@ load (const char *file_name, struct intr_frame *if_) {
 	success = true;
 	
 	// hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
-	// * 추가
-	t->run_file = file;
-	file_deny_write(file);
 
 done:
 	/* We arrive here whether the load is successful or not. */
@@ -805,7 +814,6 @@ setup_stack (struct intr_frame *if_) {
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {	
 		success = true;
 		if_->rsp = USER_STACK;
-		thread_current()->stack_bottom = stack_bottom;
 	};
 	// printf("===============setup stack done %d===============\n", success);
 	return success;
