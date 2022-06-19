@@ -284,7 +284,7 @@ process_exit (void) {
 	int cnt = 2;
 	while (cnt < FD_MAX) {
 		if (table[cnt]) { // != 0 && table[cnt] != NULL
-			close(cnt);
+			file_close(table[cnt]);
 			table[cnt] = NULL;
 		}
 		cnt++;
@@ -301,8 +301,8 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	mmap_hash_kill(&curr->mmap_hash);
-	supplemental_page_table_kill (&curr->spt);
+	// mmap_hash_kill(&curr->mmap_hash);
+	// supplemental_page_table_kill (&curr->spt);
 #endif
 
 	uint64_t *pml4;
