@@ -387,15 +387,16 @@ void thread_awake(int64_t ticks) {
 	if (list_empty (&sleep_list))
 		return idle_thread;
 	else {
-		struct list_elem *temp = list_front(&sleep_list);
+		struct list_elem *temp = list_begin(&sleep_list);
 		int64_t min_value = INT64_MAX;
 
 		while (temp != list_tail(&sleep_list)) {
 			struct thread *cur = list_entry(temp, struct thread, elem);
 			if (cur->wakeup_tick <= ticks) {
 			  temp = list_remove(temp);
-				list_push_back (&ready_list, &cur->elem);
-				cur->status = THREAD_READY;
+				// list_push_back (&ready_list, &cur->elem);
+				// cur->status = THREAD_READY;
+				thread_unblock(cur);
 			} else {
 				if (cur->wakeup_tick < min_value) {
 					min_value = cur->wakeup_tick;

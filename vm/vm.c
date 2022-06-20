@@ -358,17 +358,24 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 
 static void copy_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry (hash_elem, struct page, hash_elem);
-	enum vm_type type = VM_TYPE(p->operations->type);
-	if(type == VM_UNINIT) {
-		type = p->uninit.type;
+	// enum vm_type type = VM_TYPE(p->operations->type);
+	// if(type == VM_UNINIT) {
+	// 	type = p->uninit.type;
+	// }
+	if(p!=NULL) {
+		vm_alloc_page_with_initializer( VM_TYPE(page_get_type(p)) | VM_MARKER_1, p->va, p->writable, NULL, p);
 	}
-	vm_alloc_page_with_initializer(type | VM_MARKER_1, p->va, p->writable, NULL, p);
+	
 }
 
 /* Copy supplemental page table from src to dst */
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
+	
+	if(hash_empty(&src->hash_page_table)) {
+		return false;
+	}
 	hash_apply(&src->hash_page_table, copy_elem);
 	return true;
 }
