@@ -90,7 +90,8 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	if (ctid == TID_ERROR)
 		return TID_ERROR;
 	struct thread *child = get_child_process(ctid);
-	sema_down(&cur->fork_sema);
+	// sema_down(&cur->fork_sema);
+	sema_down(&child->fork_sema);
 	return ctid;
 }
 
@@ -188,14 +189,16 @@ __do_fork (void *aux) {
 	}
 	current->next_fd = parent->next_fd;
 
-	sema_up(&parent->fork_sema);
+	// sema_up(&parent->fork_sema);
+	sema_up(&current->fork_sema);
 
 	process_init ();
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
 error:
-	sema_up(&parent->fork_sema);
+	// sema_up(&parent->fork_sema);
+	sema_up(&current->fork_sema);
 	exit(TID_ERROR);
 }
 
