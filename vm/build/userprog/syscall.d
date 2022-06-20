@@ -12,8 +12,8 @@ userprog/syscall.o: ../../userprog/syscall.c \
  ../../include/threads/synch.h ../../include/lib/kernel/hash.h \
  ../../include/lib/stdio.h ../../include/lib/stdarg.h \
  ../../include/lib/kernel/stdio.h ../../include/lib/syscall-nr.h \
- ../../include/threads/loader.h ../../include/userprog/gdt.h \
- ../../include/threads/flags.h ../../include/intrinsic.h \
- ../../include/threads/mmu.h ../../include/threads/pte.h \
- ../../include/threads/vaddr.h ../../include/filesys/filesys.h \
+ ../../include/intrinsic.h ../../include/threads/mmu.h \
+ ../../include/threads/pte.h ../../include/threads/vaddr.h \
+ ../../include/threads/loader.h ../../include/threads/flags.h \
+ ../../include/userprog/gdt.h ../../include/filesys/filesys.h \
  ../../include/userprog/process.h

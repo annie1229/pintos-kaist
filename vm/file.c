@@ -1,6 +1,7 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "vm/vm.h"
+#include "threads/malloc.h"
 #include "threads/mmu.h"
 #include "userprog/syscall.h"
 #include <string.h>
@@ -30,6 +31,7 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */
 	page->operations = &file_ops;
 	struct file_page *file_page = &page->file;
+	return true;
 }
 
 /* Swap in the page by read contents from the file. */
@@ -45,7 +47,6 @@ file_backed_swap_in (struct page *page, void *kva) {
 	if(kva+page->read_bytes != PGSIZE) {
 		memset (kva + page->read_bytes, 0, page->zero_bytes);
 	}
-	page->is_loaded = true;
 	return true;
 }
 
@@ -57,7 +58,7 @@ file_backed_swap_out (struct page *page) {
 		pml4_set_dirty(thread_current()->pml4, page->va, false);
 		file_write_at(page->f, page->va, page->read_bytes, page->offset);
 	}
-	del_frame_from_frame_table(page->frame);
+	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
 	page->frame = NULL;
 	return true;
@@ -97,7 +98,6 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->read_bytes = page_read_bytes;
 		aux->zero_bytes = page_zero_bytes;
 		aux->writable = writable;
-		aux->is_loaded = false;
 		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_mmap_file, aux)) {
 			// printf("do mmap vm alloc page fail!!!\n");
@@ -189,12 +189,11 @@ lazy_load_mmap_file (struct page *page, void *aux) {
 	if (file_read_at(f_info->file, page->frame->kva, f_info->read_bytes, f_info->offset) != (int) f_info->read_bytes) {
 		// printf("lazy load file_read mmap fail!!!!!!!!!!!\n");
 		free(aux);
-		vm_dealloc_page(page);
+		// delete_page(page); 
 		return false;
 	}
 	// printf("lazy load file_read succ!!!!!!!!!!!\n");
 	memset (page->frame->kva + f_info->read_bytes, 0, f_info->zero_bytes);
-	page->is_loaded = true;
 	free(aux);
 	// printf("-----------------lazy load seg mmap done!!!!!!!!!!!!!!!\n");
 	return true;
@@ -228,13 +227,11 @@ do_munmap (void *addr) {
 			struct thread *cur = thread_current();
 			if(pml4_is_dirty (cur->pml4, p->va)) { 
 				pml4_set_dirty(cur->pml4, p->va, false);
-				file_write_at(p->f, p->va, p->read_bytes, p->offset);
+				file_write_with_lock(p->f, p->va, p->read_bytes, p->offset);
 			}
-			/*페이지, 프레임 다 해제 해야 하지 않나 */ 
-			pml4_clear_page(cur->pml4, p->va);
+			delete_page (p); 
 		}	
 	}
-	
 	// printf("do_munmap done==============\n");
 	return true;
 }

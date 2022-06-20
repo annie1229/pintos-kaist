@@ -5,4 +5,11 @@ lib/kernel/bitmap.o: ../../lib/kernel/bitmap.c \
  ../../include/lib/limits.h ../../include/lib/round.h \
  ../../include/lib/stdio.h ../../include/lib/stdarg.h \
  ../../include/lib/kernel/stdio.h ../../include/threads/malloc.h \
- ../../include/filesys/file.h ../../include/filesys/off_t.h
+ ../../include/userprog/syscall.h ../../include/threads/thread.h \
+ ../../include/lib/kernel/list.h ../../include/threads/interrupt.h \
+ ../../include/vm/vm.h ../../include/threads/palloc.h \
+ ../../include/lib/kernel/hash.h ../../include/lib/kernel/list.h \
+ ../../include/vm/uninit.h ../../include/vm/anon.h \
+ ../../include/devices/disk.h ../../include/vm/file.h \
+ ../../include/filesys/file.h ../../include/filesys/off_t.h \
+ ../../include/threads/synch.h ../../include/lib/kernel/hash.h

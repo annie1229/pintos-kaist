@@ -62,6 +62,12 @@ void syscall_handler(struct intr_frame *f UNUSED) {
       memcpy(&thread_current()->ptf, f, sizeof(struct intr_frame));
       f->R.rax = (uint64_t)fork(f->R.rdi);
       break;
+    case SYS_EXEC:
+      exec(f->R.rdi);
+      break;
+    case SYS_WAIT:
+      f->R.rax = (uint64_t)wait(f->R.rdi);
+      break;
     case SYS_CREATE:
       f->R.rax = (uint64_t)create(f->R.rdi, f->R.rsi);
       break;
@@ -79,12 +85,6 @@ void syscall_handler(struct intr_frame *f UNUSED) {
       break;
     case SYS_WRITE:
       f->R.rax = (uint64_t)write(f->R.rdi, f->R.rsi, f->R.rdx);
-      break;
-    case SYS_EXEC:
-      exec(f->R.rdi);
-      break;
-    case SYS_WAIT:
-      f->R.rax = (uint64_t)wait(f->R.rdi);
       break;
     case SYS_SEEK:
       seek(f->R.rdi, f->R.rsi);
@@ -113,6 +113,7 @@ void halt(void) {
 }
 
 void exit(int status) {
+  // puts("exit!!");
   /*
    * 실행중인 스레드 구조체를 가져옴
    * 프로세스 종료 메시지 출력
@@ -126,11 +127,16 @@ void exit(int status) {
 }
 
 int fork(const char *thread_name) {
+  // puts("fork!!");
   check_address(thread_name);
-  return process_fork(thread_name, &thread_current()->ptf);
+  lock_acquire(&filesys_lock);
+  int ret = process_fork(thread_name, &thread_current()->ptf);
+  lock_release(&filesys_lock);
+  return ret;
 }
 
 int exec(const char *file_name) {
+  // puts("exec!!");
   check_address(file_name);
 
   int file_size = strlen(file_name) + 1;
@@ -146,30 +152,43 @@ int exec(const char *file_name) {
   }
 }
 
-int wait(tid_t pid) { return process_wait(pid); }
+int wait(tid_t pid) {
+  // puts("wait!!");
+  return process_wait(pid);
+}
 
 bool create(const char *file, unsigned initial_size) {
+  // puts("create!!");
   /*
    * 파일 이름과 크기에 해당하는 파일 생성
    * 파일 생성 성공 시 true 반환, 실패 시 false 반환
    */
   check_address(file);
-  return filesys_create(file, initial_size);
+  lock_acquire(&filesys_lock);
+  bool result = filesys_create(file, initial_size);
+  lock_release(&filesys_lock);
+  return result;
 }
 
 bool remove(const char *file) {
+  // puts("remove!!");
   /*
    * 파일 이름에 해당하는 파일을 제거
    * 파일 제거 성공 시 true 반환, 실패 시 false 반환
    */
   check_address(file);
-  return filesys_remove(file);
+  lock_acquire(&filesys_lock);
+  bool result = filesys_remove(file);
+  lock_release(&filesys_lock);
+  return result;
 }
 
 int open(const char *file) {
   check_address(file);
   struct thread *cur = thread_current();
+  lock_acquire(&filesys_lock);
   struct file *fd = filesys_open(file);
+  lock_release(&filesys_lock);
   if (fd) {
     for (int i = 2; i < FD_MAX; i++) {
       if (!cur->fdt[i]) {
@@ -178,18 +197,26 @@ int open(const char *file) {
         return i;
       }
     }
+    lock_acquire(&filesys_lock);
     file_close(fd);
+    lock_release(&filesys_lock);
   }
   return -1;
 }
 
 int filesize(int fd) {
   struct file *file = thread_current()->fdt[fd];
-  if (file) return file_length(file);
+  if (file) {
+    lock_acquire(&filesys_lock);
+    int length = file_length(file);
+    lock_release(&filesys_lock);
+    return length;
+  }
   return -1;
 }
 
 int read(int fd, void *buffer, unsigned size) {
+  // puts("read!!");
   check_valid_buffer(buffer, size, true);
   if (fd == 1) {
     return -1;
@@ -212,6 +239,7 @@ int read(int fd, void *buffer, unsigned size) {
 }
 
 int write(int fd UNUSED, const void *str, unsigned size) {
+  // puts("write!!");
   check_valid_string(str, size);
 
   if (fd == 0)  // STDIN일때 -1
@@ -225,34 +253,40 @@ int write(int fd UNUSED, const void *str, unsigned size) {
   }
 
   struct file *file = thread_current()->fdt[fd];
-  if (file == NULL) {
-  }
   if (file) {
     lock_acquire(&filesys_lock);
     int write_byte = file_write(file, str, size);
     lock_release(&filesys_lock);
-    if (write_byte != 0) {
-      pml4_set_dirty(thread_current()->pml4, str, true);
-    }
     return write_byte;
   }
 }
 
 void seek(int fd, unsigned position) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile) file_seek(curfile, position);
+  if (curfile) {
+    lock_acquire(&filesys_lock);
+    file_seek(curfile, position);
+    lock_release(&filesys_lock);
+  }
 }
 
 unsigned tell(int fd) {
   struct file *curfile = thread_current()->fdt[fd];
-  if (curfile) return file_tell(curfile);
+  if (curfile) {
+    lock_acquire(&filesys_lock);
+    unsigned result = file_tell(curfile);
+    lock_release(&filesys_lock);
+    return result;
+  }
+  return -1;
 }
 
 void close(int fd) {
+  // puts("close!!");
   struct file *file = thread_current()->fdt[fd];
   if (file) {
-    lock_acquire(&filesys_lock);
     thread_current()->fdt[fd] = NULL;
+    lock_acquire(&filesys_lock);
     file_close(file);
     lock_release(&filesys_lock);
   }
@@ -263,13 +297,13 @@ void check_address(void *addr) {
 #ifdef VM
   if (addr == NULL || is_kernel_vaddr(addr) ||
       spt_find_page(&cur->spt, addr) == NULL) {
-    // print("check_address fail!!!");
     exit(-1);
   }
 #else
   if (addr == NULL || is_kernel_vaddr(addr) ||
-      pml4_get_page(cur->pml4, addr) == NULL)
+      pml4_get_page(cur->pml4, addr) == NULL) {
     exit(-1);
+  }
 #endif
 }
 
@@ -298,19 +332,37 @@ void check_valid_string(const void *str, unsigned size) {
 }
 
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset) {
+  // puts("mmap!!");
   if (addr == 0 || length == 0 || KERN_BASE - USER_STACK < length || fd == 0 ||
       fd == 1 || pg_ofs(addr) != 0 || length < offset || is_kernel_vaddr(addr))
     return NULL;
   struct file *f = thread_current()->fdt[fd];
+  int ret;
+  lock_acquire(&filesys_lock);
   struct file *open_file = file_reopen(f);
+  lock_release(&filesys_lock);
   return do_mmap(addr, length, writable, open_file, offset);
 }
 
 void munmap(void *addr) {
-  lock_acquire(&filesys_lock);
+  // puts("mmunmap!!");
   if (!do_munmap(addr)) {
-    lock_release(&filesys_lock);
     exit(-1);
   };
+}
+
+off_t file_write_with_lock(struct file *file, void *buffer, off_t size,
+                           off_t file_ofs) {
+  lock_acquire(&filesys_lock);
+  off_t ret = file_write_at(file, buffer, size, file_ofs);
   lock_release(&filesys_lock);
+  return ret;
+}
+
+off_t file_read_with_lock(struct file *file, void *buffer, off_t size,
+                          off_t file_ofs) {
+  lock_acquire(&filesys_lock);
+  off_t ret = file_read_at(file, buffer, size, file_ofs);
+  lock_release(&filesys_lock);
+  return ret;
 }

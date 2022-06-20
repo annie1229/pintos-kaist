@@ -4,6 +4,7 @@
 #include <round.h>
 #include <stdio.h>
 #include "threads/malloc.h"
+#include "userprog/syscall.h"
 #ifdef FILESYS
 #include "filesys/file.h"
 #endif
