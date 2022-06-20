@@ -87,7 +87,10 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 			p->va = pg_round_down(upage);
 			p->writable = parent_page->writable;
-			p->f = parent_page->f;
+			if(parent_page->f != NULL) {
+				p->f = file_reopen(parent_page->f);
+			} 
+			// p->f = parent_page->f;
 			p->offset = parent_page->offset;
 			p->read_bytes = parent_page->read_bytes;
 			p->zero_bytes = parent_page->zero_bytes;
@@ -282,7 +285,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED, bool user U
 	struct thread *cur = thread_current();
 	struct supplemental_page_table *spt UNUSED = &cur->spt;
 	struct page *page = spt_find_page(spt, addr);
-  if (is_kernel_vaddr(addr)) {
+ 	if (is_kernel_vaddr(addr)) {
 		// printf("handle fault is kernel addr!!!!!\n");
 		return false;
 	}
@@ -358,11 +361,11 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 
 static void copy_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry (hash_elem, struct page, hash_elem);
-	// enum vm_type type = VM_TYPE(p->operations->type);
-	// if(type == VM_UNINIT) {
-	// 	type = p->uninit.type;
-	// }
+
 	if(p!=NULL) {
+		if(page_get_type(p) == VM_FILE) {
+			return;
+		}
 		vm_alloc_page_with_initializer( VM_TYPE(page_get_type(p)) | VM_MARKER_1, p->va, p->writable, NULL, p);
 	}
 	
@@ -380,10 +383,15 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	return true;
 }
 
+
 static void delete_elem(struct hash_elem *hash_elem, void* aux) {
 	struct page *p = hash_entry(hash_elem, struct page, hash_elem);
 	if (p != NULL) {
 		delete_frame(p);
+		if(p->swap_slot) {
+			delete_swap_slot(p->swap_slot);
+			p->swap_slot = NULL;
+		}
 		vm_dealloc_page(p);
 	}
 }

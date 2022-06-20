@@ -95,7 +95,6 @@ struct frame {
 };
 
 struct mmap_file {
-	int mappid;
 	void *va;  
 	struct file* file;
 	struct hash_elem elem;

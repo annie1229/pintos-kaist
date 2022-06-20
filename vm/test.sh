@@ -305,6 +305,9 @@ pintos -v -k -T 600 -m 40   --fs-disk=10 -p tests/vm/swap-fork:swap-fork -p test
 perl -I../.. ../../tests/vm/swap-fork.ck tests/vm/swap-fork tests/vm/swap-fork.result
 
 # # Project 3 - VM - Copy on write
-# pintos -v -k -T 60 -m 20   --fs-disk=10 -p tests/vm/cow/cow-simple:cow-simple --swap-disk=4 -- -q   -f run cow-simple < /dev/null 2> tests/vm/cow/cow-simple.errors > tests/vm/cow/cow-simple.output
-# perl -I../.. ../../tests/vm/cow/cow-simple.ck tests/vm/cow/cow-simple tests/vm/cow/cow-simple.result
+pintos -v -k -T 60 -m 20   --fs-disk=10 -p tests/vm/cow/cow-simple:cow-simple --swap-disk=4 -- -q   -f run cow-simple < /dev/null 2> tests/vm/cow/cow-simple.errors > tests/vm/cow/cow-simple.output
+perl -I../.. ../../tests/vm/cow/cow-simple.ck tests/vm/cow/cow-simple tests/vm/cow/cow-simple.result
 
+
+# pintos -v -k -T 600 -m 40   --fs-disk=10 -p tests/vm/swap-fork:swap-fork -p tests/vm/child-swap:child-swap --swap-disk=200 -- -q   -f run swap-fork < /dev/null 2> tests/vm/swap-fork.errors > tests/vm/swap-fork.output
+# perl -I../.. ../../tests/vm/swap-fork.ck tests/vm/swap-fork tests/vm/swap-fork.result

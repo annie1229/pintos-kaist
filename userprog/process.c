@@ -65,6 +65,7 @@ process_create_initd (const char *file_name) {
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	struct thread *child = get_child_process(tid);
+	sema_down(&child->fork_sema);
 	return tid;
 }
 
@@ -72,10 +73,10 @@ process_create_initd (const char *file_name) {
 static void
 initd (void *f_name) {
 #ifdef VM
-	supplemental_page_table_init (&thread_current ()->spt);
-	mmap_hash_init (&thread_current ()->mmap_hash);
+	// supplemental_page_table_init (&thread_current ()->spt);
+	// mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
-	process_init ();
+	// process_init ();
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -224,6 +225,7 @@ process_exec (void *f_name) {
 	mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
 	success = load (file_name, &_if);
+	sema_up(&thread_current()->fork_sema);
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
@@ -274,7 +276,6 @@ process_exit (void) {
   
 #ifdef VM
 	mmap_hash_kill(&curr->mmap_hash);
-	supplemental_page_table_kill (&curr->spt);
 #endif
 
 	if (curr->run_file) {
@@ -304,8 +305,8 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	// mmap_hash_kill(&curr->mmap_hash);
-	// supplemental_page_table_kill (&curr->spt);
+	mmap_hash_kill(&curr->mmap_hash);
+	supplemental_page_table_kill (&curr->spt);
 #endif
 
 	uint64_t *pml4;
