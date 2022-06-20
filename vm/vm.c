@@ -392,7 +392,7 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		// del_frame_from_frame_table(p->frame);
+		del_frame_from_frame_table(p->frame);
 		pml4_clear_page(thread_current()->pml4, p->va);
 	 	palloc_free_page(p->frame->kva);
 		free(p->frame);

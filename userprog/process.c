@@ -408,6 +408,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
+	int read_result;
 
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
@@ -437,8 +438,11 @@ load (const char *file_name, struct intr_frame *if_) {
 	t->run_file = file;
 	file_deny_write(file);
 
+	lock_acquire(&filesys_lock);
+	read_result = file_read (file, &ehdr, sizeof ehdr);
+	lock_release(&filesys_lock);
 	/* Read and verify executable header. */
-	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
+	if (read_result != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
 			|| ehdr.e_type != 2
 			|| ehdr.e_machine != 0x3E // amd64
@@ -456,9 +460,15 @@ load (const char *file_name, struct intr_frame *if_) {
 
 		if (file_ofs < 0 || file_ofs > file_length (file))
 			goto done;
+		lock_acquire(&filesys_lock);
 		file_seek (file, file_ofs);
+		lock_release(&filesys_lock);
 
-		if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
+		lock_acquire(&filesys_lock);
+		read_result = file_read (file, &phdr, sizeof phdr);
+		lock_release(&filesys_lock);
+
+		if (read_result != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
 		switch (phdr.p_type) {
