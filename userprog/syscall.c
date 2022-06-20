@@ -337,6 +337,9 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
   lock_acquire(&filesys_lock);
   struct file *open_file = file_reopen(f);
   lock_release(&filesys_lock);
+  if(open_file == NULL) {
+    return;
+  }
   return do_mmap(addr, length, writable, open_file, offset);
 }
 

@@ -20,6 +20,8 @@ static const struct page_operations file_ops = {
 	.type = VM_FILE,
 };
 
+struct lock mmap_kill_lock;
+
 /* The initializer of file vm */
 void
 vm_file_init (void) {
@@ -42,7 +44,7 @@ file_backed_swap_in (struct page *page, void *kva) {
 	// printf("read bytes %d, zero bytes %d\n", page->read_bytes, page->zero_bytes);
 	struct file_page *file_page = &page->file;
 	// printf("file_length %d\n", file_length(&page->f));
-	if (file_read_at(page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
+	if (file_read_with_lock(page->f, kva, page->read_bytes, page->offset) != (int) page->read_bytes) 
 		return false;
 	if(kva+page->read_bytes != PGSIZE) {
 		memset (kva + page->read_bytes, 0, page->zero_bytes);
@@ -55,8 +57,8 @@ static bool
 file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
 	if(pml4_is_dirty(thread_current()->pml4, page->va)) {
+		file_write_with_lock(page->f, page->va, page->read_bytes, page->offset);
 		pml4_set_dirty(thread_current()->pml4, page->va, false);
-		file_write_at(page->f, page->va, page->read_bytes, page->offset);
 	}
 	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
@@ -226,8 +228,8 @@ do_munmap (void *addr) {
 			struct page *p = list_entry(list_elem, struct page, mmap_elem);
 			struct thread *cur = thread_current();
 			if(pml4_is_dirty (cur->pml4, p->va)) { 
-				pml4_set_dirty(cur->pml4, p->va, false);
 				file_write_with_lock(p->f, p->va, p->read_bytes, p->offset);
+				pml4_set_dirty(cur->pml4, p->va, false);
 			}
 			delete_page (p); 
 		}	
