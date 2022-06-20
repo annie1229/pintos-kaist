@@ -80,14 +80,11 @@ anon_swap_in (struct page *page, void *kva) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	// if(page->is_child) {
-	// 	page->is_child = false;
-	// } else {
+
 	lock_acquire(&swap_lock);
 	bitmap_set(swap_table->used, idx, false);
 	lock_release(&swap_lock);
 	page->swap_slot = NULL;
-	// }
 	return true;
 }
 
@@ -123,5 +120,10 @@ anon_swap_out (struct page *page) {
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
 static void
 anon_destroy (struct page *page) {
-	struct anon_page *anon_page = &page->anon;
+}
+
+void delete_swap_slot (disk_sector_t swap_slot) {
+	lock_acquire(&swap_lock);
+	bitmap_set(swap_table->used, swap_slot, false);
+	lock_release(&swap_lock);
 }
