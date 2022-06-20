@@ -65,7 +65,6 @@ process_create_initd (const char *file_name) {
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	struct thread *child = get_child_process(tid);
-	sema_down(&child->fork_sema);
 	return tid;
 }
 
@@ -225,7 +224,6 @@ process_exec (void *f_name) {
 	mmap_hash_init (&thread_current ()->mmap_hash);
 #endif
 	success = load (file_name, &_if);
-	sema_up(&thread_current()->fork_sema);
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
@@ -245,6 +243,7 @@ process_exec (void *f_name) {
  *
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
+
 int
 process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you

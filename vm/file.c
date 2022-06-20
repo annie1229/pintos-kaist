@@ -20,11 +20,10 @@ static const struct page_operations file_ops = {
 	.type = VM_FILE,
 };
 
-struct lock mmap_kill_lock;
-
 /* The initializer of file vm */
 void
 vm_file_init (void) {
+
 }
 
 /* Initialize the file backed page */

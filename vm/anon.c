@@ -59,12 +59,10 @@ anon_child_swap_in (struct page *parent_page, void *kva) {
 	struct anon_page *anon_page = &parent_page->anon;
 	size_t idx = parent_page->swap_slot;
 	void *addr = kva;
-	lock_acquire(&swap_lock);
 	for(int i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	lock_release(&swap_lock);
 	parent_page->swap_slot = NULL;
 	return true;
 }
@@ -78,7 +76,6 @@ anon_swap_in (struct page *page, void *kva) {
 	size_t idx = page->swap_slot;
 	void *addr = kva;
   
-	lock_acquire(&swap_lock);
 	for(int i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
@@ -86,6 +83,7 @@ anon_swap_in (struct page *page, void *kva) {
 	// if(page->is_child) {
 	// 	page->is_child = false;
 	// } else {
+	lock_acquire(&swap_lock);
 	bitmap_set(swap_table->used, idx, false);
 	lock_release(&swap_lock);
 	page->swap_slot = NULL;
@@ -100,6 +98,7 @@ anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
 	lock_acquire(&swap_lock);
 	size_t idx = bitmap_scan_and_flip(swap_table->used, 0, 1, false);
+	lock_release(&swap_lock);	
 
 	if (idx == BITMAP_ERROR) {
 		// puts("BITMAP_ERROR!!!!!!!!");
@@ -113,7 +112,6 @@ anon_swap_out (struct page *page) {
 		disk_write(swap_disk, idx * 8 + i, addr);
 		addr += DISK_SECTOR_SIZE;
 	}
-	lock_release(&swap_lock);	
 	// del_frame_from_frame_table(page->frame);
 	pml4_clear_page(thread_current()->pml4, page->va);
 	page->frame = NULL;

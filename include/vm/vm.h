@@ -39,6 +39,7 @@ struct thread;
 
 struct list frame_table;
 struct list_elem *lru_clock;
+struct lock frame_table_lock;
 
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are

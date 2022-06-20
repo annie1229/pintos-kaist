@@ -24,6 +24,7 @@ vm_init (void) {
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
+	lock_init(&frame_table_lock);
 	lru_clock = list_head(&frame_table);
 }
 
@@ -177,9 +178,12 @@ vm_get_victim (void) {
 	// printf("vm_get_victim\n");
 	struct frame *victim = NULL;
 	struct thread *cur = thread_current();
+	lock_acquire(&frame_table_lock);
 	int cnt = list_size(&frame_table);
+	lock_release(&frame_table_lock);
 	 /* TODO: The policy for eviction is up to you. */
 	while(true) {
+		
 		struct list_elem *clock = get_next_lru_clock();
 		if (clock == NULL) {
 			return NULL;
@@ -392,7 +396,7 @@ void free_frame(void *kva) {
 
 void delete_frame(struct page *p) {
 	if(p->frame != NULL) {
-		// del_frame_from_frame_table(p->frame);
+		del_frame_from_frame_table(p->frame);
 		pml4_clear_page(thread_current()->pml4, p->va);
 	 	palloc_free_page(p->frame->kva);
 		free(p->frame);
@@ -439,16 +443,24 @@ page_lookup (const void *address) {
 
 void add_frame_to_frame_table(struct frame *frame) {
 	// printf("add frame to frame table\n");
+
+	lock_acquire(&frame_table_lock);
 	list_push_back(&frame_table, &frame->frame_elem);
+	lock_release(&frame_table_lock);
+
 	// printf("add frame to frame table done\n");
 }
 
 void del_frame_from_frame_table(struct frame *frame) {
+	lock_acquire(&frame_table_lock);
 	list_remove(&frame->frame_elem);
+	lock_release(&frame_table_lock);
 }
 
 static struct list_elem *get_next_lru_clock() {
+	lock_acquire(&frame_table_lock);
 	if (list_empty(&frame_table)) {
+		lock_release(&frame_table_lock);
 		return NULL;
 	}
 	struct list_elem *next_clock = list_next(lru_clock);
@@ -456,6 +468,7 @@ static struct list_elem *get_next_lru_clock() {
 		next_clock = list_begin(&frame_table);
 	}
 	lru_clock = next_clock;
+	lock_release(&frame_table_lock);
 	return next_clock;
 }
 
