@@ -12,6 +12,8 @@ static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
 static bool lazy_load_mmap_file (struct page *page, void *aux);
+
+
 /* DO NOT MODIFY this struct */
 static const struct page_operations file_ops = {
 	.swap_in = file_backed_swap_in,
@@ -102,6 +104,13 @@ do_mmap (void *addr, size_t length, int writable,
 		// printf("do mmap >>>>> addr %p read %d zero %d writable %s\n", addr, aux->read_bytes, aux->zero_bytes, writable ? "true" : "false");
 		if (!vm_alloc_page_with_initializer (VM_FILE, addr, writable, lazy_load_mmap_file, aux)) {
 			// printf("do mmap vm alloc page fail!!!\n");
+			if(file) {
+				lock_acquire(&filesys_lock);
+				file_close(file);
+				lock_release(&filesys_lock);
+				mf->file = NULL;
+				aux->file = NULL;
+			}
 			return NULL;
 		}
 		
@@ -233,6 +242,14 @@ do_munmap (void *addr) {
 			delete_page (p); 
 		}	
 	}
+	
+	if(found_mf->file) {
+		lock_acquire(&filesys_lock);
+		file_close(found_mf->file);
+		lock_release(&filesys_lock);
+		found_mf->file = NULL;
+	}
+
 	// printf("do_munmap done==============\n");
 	return true;
 }
