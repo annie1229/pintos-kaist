@@ -265,6 +265,20 @@ void test_max_priority (void) {
 
 }
 
+bool preempt_by_priority(void)
+{
+  int curr_priority;
+  struct thread *max_ready_thread;
+  struct list_elem *max_ready_elem;
+  curr_priority = thread_get_priority();
+  if (list_empty(&ready_list))
+    return false; /* !! if ready list is empty, return false directly !!*/
+  list_sort(&ready_list, &cmp_priority, NULL);
+  max_ready_elem = list_begin(&ready_list);
+  max_ready_thread = list_entry(max_ready_elem, struct thread, elem);
+  return curr_priority < max_ready_thread->priority;
+}
+
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
