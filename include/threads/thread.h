@@ -185,5 +185,6 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
 void donate_priority(void);
 void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
+bool preempt_by_priority(void);
 
 #endif /* threads/thread.h */
