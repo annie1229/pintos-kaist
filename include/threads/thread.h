@@ -13,6 +13,8 @@
 // * USERPROG 추가
 #include "include/threads/synch.h"
 
+#include "kernel/hash.h"
+
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -32,6 +34,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define FD_MAX 128
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -126,10 +129,11 @@ struct thread {
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
+	struct hash mmap_hash;
 #endif
 
 	/* Owned by thread.c. */
-  struct intr_frame ptf;
+  	struct intr_frame ptf;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };
@@ -176,6 +180,7 @@ void do_iret (struct intr_frame *tf);
 // * priority schedule 추가 함수
 void test_max_priority (void);
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool preempt_by_priority(void);
 
 // * priority donation 추가 함수
 void donate_priority(void);

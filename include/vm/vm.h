@@ -2,6 +2,7 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "hash.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -36,6 +37,9 @@ struct thread;
 
 #define VM_TYPE(type) ((type) & 7)
 
+struct list frame_table;
+struct list_elem *lru_clock;
+
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are
  * uninit_page, file_page, anon_page, and page cache (project4).
@@ -46,6 +50,20 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
+	struct hash_elem hash_elem;
+	
+	bool is_child;
+	bool writable;
+	struct file* f;
+	
+	size_t offset;
+	size_t read_bytes;
+	size_t zero_bytes;
+
+	/* Memory Mapped File 에서 다룰 예정 */
+	struct list_elem mmap_elem; /* mmap 리스트 element */
+	
+	disk_sector_t swap_slot;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -53,16 +71,34 @@ struct page {
 		struct uninit_page uninit;
 		struct anon_page anon;
 		struct file_page file;
+
 #ifdef EFILESYS
 		struct page_cache page_cache;
 #endif
 	};
 };
 
+struct file_info {
+	bool writable; /* True일 경우 해당 주소에 write 가능 	False일 경우 해당 주소에 write 불가능 */
+	struct file* file; /* 가상주소와 맵핑된 파일 */
+	size_t offset; /* 읽어야 할 파일 오프셋 */
+	size_t read_bytes; /* 가상페이지에 쓰여져 있는 데이터 크기 */
+	size_t zero_bytes; 
+};
+
 /* The representation of "frame" */
 struct frame {
 	void *kva;
 	struct page *page;
+	struct list_elem frame_elem;
+};
+
+struct mmap_file {
+	int mappid;
+	void *va;  
+	struct file* file;
+	struct hash_elem elem;
+	struct list vme_list;
 };
 
 /* The function table for page operations.
@@ -85,6 +121,7 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
+	struct hash hash_page_table;
 };
 
 #include "threads/thread.h"
@@ -106,7 +143,21 @@ bool vm_try_handle_fault (struct intr_frame *f, void *addr, bool user,
 bool vm_alloc_page_with_initializer (enum vm_type type, void *upage,
 		bool writable, vm_initializer *init, void *aux);
 void vm_dealloc_page (struct page *page);
+void delete_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
+
+void free_frame(void *kva);
+void delete_frame(struct page *p);
+
+unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
+bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+struct page *page_lookup (const void *address);
+static hash_action_func delete_elem;
+static hash_action_func copy_elem;
+
+void add_frame_to_frame_table(struct frame *frame);
+void del_frame_from_frame_table(struct frame *frame);
+void try_to_free_frames(enum palloc_flags flags);
 
 #endif  /* VM_VM_H */

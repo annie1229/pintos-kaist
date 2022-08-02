@@ -11,6 +11,8 @@ void syscall_init (void);
 
 // * 추가
 void check_address(void *addr);
+void check_valid_buffer(void *buffer, unsigned size, bool writable);
+void check_valid_string(const void *str, unsigned size);
 
 // * syscall 추가
 void halt(void);
@@ -27,6 +29,10 @@ int write(int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
+off_t file_write_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs);
+off_t file_read_with_lock (struct file *file, void *buffer, off_t size, off_t file_ofs);
 
 
 

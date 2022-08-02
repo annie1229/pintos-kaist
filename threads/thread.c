@@ -15,7 +15,10 @@
 #include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
-
+#endif
+#ifdef VM
+#include "kernel/hash.h"
+#include "vm/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -262,6 +265,20 @@ void test_max_priority (void) {
 
 }
 
+bool preempt_by_priority(void)
+{
+  int curr_priority;
+  struct thread *max_ready_thread;
+  struct list_elem *max_ready_elem;
+  curr_priority = thread_get_priority();
+  if (list_empty(&ready_list))
+    return false; /* !! if ready list is empty, return false directly !!*/
+  list_sort(&ready_list, &cmp_priority, NULL);
+  max_ready_elem = list_begin(&ready_list);
+  max_ready_thread = list_entry(max_ready_elem, struct thread, elem);
+  return curr_priority < max_ready_thread->priority;
+}
+
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -338,7 +355,6 @@ thread_exit (void) {
 #ifdef USERPROG
 	process_exit ();
 #endif
-
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
@@ -385,15 +401,16 @@ void thread_awake(int64_t ticks) {
 	if (list_empty (&sleep_list))
 		return idle_thread;
 	else {
-		struct list_elem *temp = list_front(&sleep_list);
+		struct list_elem *temp = list_begin(&sleep_list);
 		int64_t min_value = INT64_MAX;
 
 		while (temp != list_tail(&sleep_list)) {
 			struct thread *cur = list_entry(temp, struct thread, elem);
 			if (cur->wakeup_tick <= ticks) {
 			  temp = list_remove(temp);
-				list_push_back (&ready_list, &cur->elem);
-				cur->status = THREAD_READY;
+				// list_push_back (&ready_list, &cur->elem);
+				// cur->status = THREAD_READY;
+				thread_unblock (cur);
 			} else {
 				if (cur->wakeup_tick < min_value) {
 					min_value = cur->wakeup_tick;
@@ -576,9 +593,8 @@ init_thread (struct thread *t, const char *name, int priority, int wakeup_tick) 
 	t->wakeup_tick = wakeup_tick;
 	t->magic = THREAD_MAGIC;
 
-  // * USERPROG 추가
-  list_init(&t->children);
-
+	// * USERPROG 추가
+	list_init(&t->children);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

@@ -22,14 +22,17 @@ test_main (void)
 
 	/* Spawn child and wait. */
 	child = fork("child-inherit");
+
 	if (child == 0) {
 		CHECK (exec ("child-inherit") != -1, "exec \"child-inherit\"");
+    // puts("here!!!??");
+
 	}	else {
 		quiet = true;
 		CHECK (wait (child) == -1, "wait for child (should return -1)");
 		quiet = false;
 	}
-
+  // puts("here??");
   /* Verify data again. */
   CHECK (!memcmp (actual, sample, strlen (sample)),
          "checking that mmap'd file still has same data");
